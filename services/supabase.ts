@@ -1,33 +1,26 @@
 
 import { createClient } from '@supabase/supabase-js';
 
-/**
- * CONFIGURACIÓN DE SUPABASE
- * ------------------------
- * 1. Ve a supabase.com
- * 2. Crea un proyecto.
- * 3. En Settings > API busca la 'URL' y la 'anon public key'.
- */
-const supabaseUrl = 'https://tu-proyecto.supabase.co'; 
-const supabaseKey = 'tu-clave-anon'; 
+const supabaseUrl = 'https://placeholder-project.supabase.co'; 
+const supabaseKey = 'placeholder-key'; 
 
-// Verificamos si las claves son reales (Las de Supabase empiezan por 'eyJ...')
+// Detecta si las claves son reales o valores por defecto
 const isRealSupabase = 
-  supabaseUrl.startsWith('https://') && 
-  !supabaseUrl.includes('tu-proyecto') && 
+  supabaseUrl.includes('supabase.co') && 
+  !supabaseUrl.includes('placeholder-project') && 
+  supabaseKey.length > 20 &&
   supabaseKey.startsWith('eyJ');
 
-/**
- * MockSupabase: Sistema de respaldo para que la app funcione sin internet
- * o sin configuración de base de datos (usando memoria local del móvil).
- */
 class MockSupabase {
   auth = {
     getSession: async () => {
       const session = localStorage.getItem('falcon_session');
       return { data: { session: session ? JSON.parse(session) : null }, error: null };
     },
-    onAuthStateChange: (cb: any) => ({ data: { subscription: { unsubscribe: () => {} } } }),
+    onAuthStateChange: (cb: any) => {
+      // Simulación básica de eventos de auth
+      return { data: { subscription: { unsubscribe: () => {} } } };
+    },
     signInWithPassword: async ({ email }: any) => {
       const session = { user: { id: 'local-user', email }, access_token: 'local-token' };
       localStorage.setItem('falcon_session', JSON.stringify(session));
@@ -44,14 +37,14 @@ class MockSupabase {
     const getData = () => JSON.parse(localStorage.getItem(`db_${table}`) || '[]');
     const saveData = (d: any) => localStorage.setItem(`db_${table}`, JSON.stringify(d));
 
-    const queryMethods = (data: any) => {
+    const createResponse = (data: any) => {
       const promise = Promise.resolve({ data, error: null }) as any;
       promise.eq = (col: string, val: any) => {
-        const filtered = Array.isArray(data) ? data.filter(i => i[col] === val) : data;
-        return queryMethods(filtered);
+        const filtered = Array.isArray(data) ? data.filter((i: any) => i[col] === val) : data;
+        return createResponse(filtered);
       };
       promise.order = () => promise;
-      promise.single = () => queryMethods(Array.isArray(data) ? data[0] : data);
+      promise.single = () => createResponse(Array.isArray(data) ? data[0] : data);
       promise.select = () => promise;
       return promise;
     };
@@ -59,23 +52,25 @@ class MockSupabase {
     return {
       select: () => {
         let data = getData();
-        // Simular joins para que la app no pete
         if (table === 'hawks') {
           const entries = JSON.parse(localStorage.getItem('db_entries') || '[]');
           const food = JSON.parse(localStorage.getItem('db_food_items') || '[]');
           data = data.map((h: any) => ({
             ...h,
             entries: entries.filter((e: any) => e.hawk_id === h.id)
-              .map((e: any) => ({ ...e, food_items: food.filter((f: any) => f.entry_id === e.id) }))
+              .map((e: any) => ({ 
+                ...e, 
+                food_items: food.filter((f: any) => f.entry_id === e.id) 
+              }))
           }));
         }
-        return queryMethods(data);
+        return createResponse(data);
       },
       insert: (rows: any[]) => {
         const current = getData();
         const newRows = rows.map(r => ({ ...r, id: crypto.randomUUID(), created_at: new Date().toISOString() }));
         saveData([...current, ...newRows]);
-        return queryMethods(newRows[0]);
+        return createResponse(newRows[0]);
       },
       delete: () => ({
         eq: (col: string, val: any) => {
@@ -87,7 +82,6 @@ class MockSupabase {
   }
 }
 
-// Exportamos el cliente: Real si hay claves, de lo contrario el Mock local.
 export const supabase = isRealSupabase 
   ? createClient(supabaseUrl, supabaseKey) 
   : (new MockSupabase() as any);

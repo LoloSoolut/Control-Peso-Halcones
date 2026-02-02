@@ -18,26 +18,18 @@
             margin: 0;
             padding: 0;
             height: 100vh;
-            overscroll-behavior-y: contain; /* Evita el pull-to-refresh accidentado */
+            overscroll-behavior-y: contain;
         }
         #root {
             height: 100vh;
             display: flex;
             flex-direction: column;
         }
-        .no-scrollbar::-webkit-scrollbar {
-            display: none;
-        }
-        .no-scrollbar {
-            -ms-overflow-style: none;
-            scrollbar-width: none;
-        }
-        /* Ajuste para notch en móviles */
         header {
-            padding-top: calc(1rem + var(--sat));
+            padding-top: calc(0.5rem + var(--sat));
         }
         .safe-bottom {
-            padding-bottom: calc(1.5rem + var(--sab));
+            padding-bottom: calc(1rem + var(--sab));
         }
     </style>
 <script type="importmap">
@@ -46,8 +38,8 @@
     "react": "https://esm.sh/react@19.0.0",
     "react-dom": "https://esm.sh/react-dom@19.0.0",
     "react-dom/client": "https://esm.sh/react-dom@19.0.0/client",
-    "lucide-react": "https://esm.sh/lucide-react@0.463.0",
-    "recharts": "https://esm.sh/recharts@2.13.3",
+    "lucide-react": "https://esm.sh/lucide-react@0.463.0?external=react",
+    "recharts": "https://esm.sh/recharts@2.13.3?external=react,react-dom",
     "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2.45.4",
     "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
     "react/": "https://esm.sh/react@^19.2.4/"

@@ -4,14 +4,8 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "dependencies": {
-    "react": "19.0.0",
-    "react-dom": "19.0.0",
-    "lucide-react": "0.463.0",
-    "recharts": "2.13.3",
-    "@supabase/supabase-js": "2.45.4"
-  },
-  "devDependencies": {
-    "typescript": "^5.0.0"
+  "scripts": {
+    "dev": "echo 'No build step required'",
+    "build": "echo 'No build step required'"
   }
 }
