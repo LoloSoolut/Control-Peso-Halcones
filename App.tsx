@@ -1,163 +1,55 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
-  Bird, 
-  Plus, 
-  ChevronLeft, 
-  History, 
-  Utensils,
-  Trash2,
-  LogOut,
-  Mail,
-  Lock,
-  Loader2,
-  AlertCircle,
-  RefreshCcw,
-  Scale,
-  ShieldCheck,
-  Smartphone
+  Bird, Plus, ChevronLeft, Trash2, LogOut, 
+  Scale, Utensils, Calendar, Target, 
+  Smartphone, ShieldCheck, Mail, Lock, 
+  Loader2, AlertCircle, TrendingUp
 } from 'lucide-react';
-import { Hawk, ViewState, FoodType, FoodPortion } from './types.ts';
-import { getHawks, createHawk, deleteHawk, saveEntry } from './services/db.ts';
-import { supabase } from './services/supabase.ts';
+import { Hawk, ViewState, FoodType, FoodPortion, DailyEntry, FoodItem } from './types.ts';
+import { supabase, IS_MOCK_MODE } from './services/supabase.ts';
 import { 
-  ResponsiveContainer,
-  AreaChart,
-  Area,
-  CartesianGrid,
-  XAxis,
-  YAxis,
-  Tooltip
+  ResponsiveContainer, AreaChart, Area, 
+  CartesianGrid, XAxis, YAxis, Tooltip 
 } from 'recharts';
 
-// Fallback para navegadores móviles que no soportan crypto.randomUUID
-const generateId = () => {
-  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
-    return crypto.randomUUID();
-  }
-  return Math.random().toString(36).substring(2, 11) + Date.now().toString(36);
-};
-
-const IS_MOCK = !supabase?.auth?.signInWithOtp; 
-
-class ErrorBoundary extends React.Component<{children: React.ReactNode}, {hasError: boolean}> {
-  constructor(props: any) {
-    super(props);
-    this.state = { hasError: false };
-  }
-  static getDerivedStateFromError() { return { hasError: true }; }
-  render() {
-    if (this.state.hasError) {
-      return (
-        <div className="h-screen flex flex-col items-center justify-center p-8 text-center bg-white text-slate-900">
-          <AlertCircle className="w-16 h-16 text-red-500 mb-4" />
-          <h2 className="text-xl font-bold mb-2">Error Crítico</h2>
-          <button onClick={() => window.location.reload()} className="bg-slate-900 text-white px-8 py-3 rounded-2xl flex items-center gap-2 font-bold mt-4">
-            <RefreshCcw className="w-4 h-4" /> Reintentar
-          </button>
-        </div>
-      );
-    }
-    return this.props.children;
-  }
-}
-
-const AuthScreen: React.FC = () => {
-  const [isLogin, setIsLogin] = useState(true);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const handleAuth = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
-    try {
-      if (isLogin) {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
-      } else {
-        const { data, error } = await supabase.auth.signUp({ email, password });
-        if (error) throw error;
-        if (!data?.session) {
-           alert('Cuenta creada. Ahora puedes entrar.');
-           setIsLogin(true);
-        }
-      }
-    } catch (err: any) {
-      setError(err.message || 'Error de conexión');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className="flex flex-col h-full bg-slate-50 items-center justify-center p-6 text-slate-900">
-      <div className="w-full max-w-sm space-y-8">
-        <div className="text-center">
-          <div className="mx-auto w-20 h-20 bg-slate-900 rounded-3xl flex items-center justify-center text-white mb-6 shadow-xl rotate-3">
-            <Bird className="w-12 h-12" />
-          </div>
-          <h2 className="text-4xl font-black text-slate-900 tracking-tight">FalconWeight</h2>
-          <p className="mt-2 text-slate-500 font-medium italic">Control de cetrería profesional</p>
-          
-          {IS_MOCK && (
-            <div className="mt-4 inline-flex items-center gap-2 bg-amber-50 text-amber-700 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border border-amber-100">
-              <Smartphone className="w-3 h-3" /> Modo Almacenamiento Local
-            </div>
-          )}
-        </div>
-        
-        <form onSubmit={handleAuth} className="mt-8 space-y-4">
-          <div className="space-y-3">
-            <div className="relative group">
-              <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 group-focus-within:text-slate-900 transition-colors" />
-              <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="w-full pl-12 pr-4 py-4 rounded-2xl border border-slate-200 focus:ring-4 focus:ring-slate-900/5 focus:border-slate-900 outline-none transition-all bg-white" placeholder="Email" />
-            </div>
-            <div className="relative group">
-              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 group-focus-within:text-slate-900 transition-colors" />
-              <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} className="w-full pl-12 pr-4 py-4 rounded-2xl border border-slate-200 focus:ring-4 focus:ring-slate-900/5 focus:border-slate-900 outline-none transition-all bg-white" placeholder="Contraseña" />
-            </div>
-          </div>
-          
-          {error && <div className="p-4 bg-red-50 text-red-600 rounded-2xl text-sm font-semibold flex items-center gap-3 animate-pulse"><AlertCircle className="w-5 h-5" /> {error}</div>}
-          
-          <button type="submit" disabled={loading} className="w-full flex justify-center items-center bg-slate-900 text-white font-bold py-5 rounded-2xl shadow-2xl active:scale-95 transition-all disabled:opacity-50">
-            {loading ? <Loader2 className="animate-spin w-6 h-6" /> : (isLogin ? 'Iniciar Sesión' : 'Crear Cuenta')}
-          </button>
-        </form>
-        
-        <div className="text-center pt-4">
-          <button onClick={() => setIsLogin(!isLogin)} className="text-sm font-bold text-slate-500 hover:text-slate-900 transition-colors">
-            {isLogin ? '¿No tienes cuenta? Registrate aquí' : '¿Ya tienes cuenta? Entra aquí'}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const AppContent: React.FC = () => {
+const App: React.FC = () => {
   const [view, setView] = useState<ViewState>('AUTH');
   const [user, setUser] = useState<any>(null);
   const [hawks, setHawks] = useState<Hawk[]>([]);
   const [selectedHawk, setSelectedHawk] = useState<Hawk | null>(null);
   const [loading, setLoading] = useState(true);
-  
-  const [newHawkName, setNewHawkName] = useState('');
-  const [newHawkSpecies, setNewHawkSpecies] = useState('');
-  const [newHawkTargetWeight, setNewHawkTargetWeight] = useState<string>('');
-  const [weightBefore, setWeightBefore] = useState<string>('');
-  const [weightAfter, setWeightAfter] = useState<string>('');
-  const [currentFoodItems, setCurrentFoodItems] = useState<any[]>([]);
-  const [selectedFoodType, setSelectedFoodType] = useState<FoodType>(FoodType.PALOMA);
-  const [selectedFoodPortion, setSelectedFoodPortion] = useState<FoodPortion>(FoodPortion.ALA);
 
-  const refreshData = async (userId: string) => {
+  // Form states
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [hawkName, setHawkName] = useState('');
+  const [hawkSpecies, setHawkSpecies] = useState('');
+  const [hawkTargetWeight, setHawkTargetWeight] = useState('');
+  const [wBefore, setWBefore] = useState('');
+  const [wAfter, setWAfter] = useState('');
+  const [currentFood, setCurrentFood] = useState<FoodItem[]>([]);
+
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session) {
+        setUser(session.user);
+        setView('HOME');
+        loadData();
+      } else {
+        setUser(null);
+        setView('AUTH');
+        setLoading(false);
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const loadData = async () => {
+    setLoading(true);
     try {
-      setLoading(true);
-      const data = await getHawks(userId);
-      setHawks(data);
+      // En modo real aquí irían los selects complejos
+      const localHawks = JSON.parse(localStorage.getItem('db_hawks') || '[]');
+      setHawks(localHawks);
     } catch (e) {
       console.error(e);
     } finally {
@@ -165,104 +57,161 @@ const AppContent: React.FC = () => {
     }
   };
 
-  useEffect(() => {
-    const initAuth = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session) {
-          setUser(session.user);
-          setView('HOME');
-          await refreshData(session.user.id);
-        } else {
-          setView('AUTH');
-        }
-      } catch (err) {
-        console.error("Auth init error", err);
-        setView('AUTH');
-      } finally {
-        setLoading(false);
-      }
-    };
-    initAuth();
+  const saveData = (newHawks: Hawk[]) => {
+    setHawks(newHawks);
+    localStorage.setItem('db_hawks', JSON.stringify(newHawks));
+  };
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session) {
-        setUser(session.user);
-        setView('HOME');
-        refreshData(session.user.id);
-      } else {
-        setUser(null);
-        setView('AUTH');
+  const handleAuth = async (isLogin: boolean) => {
+    setLoading(true);
+    try {
+      if (isLogin) await supabase.auth.signInWithPassword({ email, password });
+      else await supabase.auth.signUp({ email, password });
+    } catch (e: any) {
+      alert(e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const addHawk = () => {
+    if (!hawkName || !hawkTargetWeight) return;
+    const newHawk: Hawk = {
+      id: Math.random().toString(36).substr(2, 9),
+      name: hawkName,
+      species: hawkSpecies || 'Desconocida',
+      targetWeight: parseInt(hawkTargetWeight),
+      entries: []
+    };
+    saveData([...hawks, newHawk]);
+    setHawkName('');
+    setHawkSpecies('');
+    setHawkTargetWeight('');
+    setView('HOME');
+  };
+
+  const deleteHawk = (id: string) => {
+    if (!confirm('¿Eliminar este halcón y todos sus registros?')) return;
+    saveData(hawks.filter(h => h.id !== id));
+    setView('HOME');
+  };
+
+  const addEntry = () => {
+    if (!selectedHawk || !wBefore || !wAfter) return;
+    const entry: DailyEntry = {
+      id: Math.random().toString(36).substr(2, 9),
+      date: new Date().toISOString(),
+      weightBefore: parseFloat(wBefore),
+      weightAfter: parseFloat(wAfter),
+      foodItems: [...currentFood]
+    };
+    
+    const updatedHawks = hawks.map(h => {
+      if (h.id === selectedHawk.id) {
+        const updatedEntries = [entry, ...h.entries];
+        const updatedHawk = { ...h, entries: updatedEntries };
+        setSelectedHawk(updatedHawk);
+        return updatedHawk;
       }
+      return h;
     });
-    return () => subscription.unsubscribe();
-  }, []);
+    
+    saveData(updatedHawks);
+    setWBefore('');
+    setWAfter('');
+    setCurrentFood([]);
+    setView('HAWK_DETAIL');
+  };
 
   const chartData = useMemo(() => {
-    if (!selectedHawk || !selectedHawk.entries) return [];
+    if (!selectedHawk) return [];
     return [...selectedHawk.entries]
       .reverse()
       .slice(-7)
-      .map(e => ({ 
-        name: new Date(e.date).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }), 
-        peso: Number(e.weightBefore) 
+      .map(e => ({
+        fecha: new Date(e.date).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }),
+        peso: e.weightBefore
       }));
   }, [selectedHawk]);
 
   if (loading && view !== 'AUTH') {
     return (
-      <div className="flex flex-col h-full items-center justify-center bg-slate-50 text-slate-900">
-        <Loader2 className="animate-spin w-10 h-10 text-slate-900 mb-4" />
-        <p className="text-slate-400 font-bold">Iniciando cetrería...</p>
+      <div className="flex-1 flex flex-col items-center justify-center bg-white">
+        <Loader2 className="w-10 h-10 animate-spin text-slate-900 mb-4" />
+        <p className="font-bold text-slate-400">Sincronizando...</p>
       </div>
     );
   }
 
-  if (view === 'AUTH') return <AuthScreen />;
-
   return (
-    <div className="max-w-md mx-auto h-full bg-slate-50 relative flex flex-col overflow-hidden shadow-2xl border-x border-slate-100 text-slate-900">
+    <div className="flex-1 flex flex-col max-w-md mx-auto bg-white shadow-2xl relative overflow-hidden">
+      {/* AUTH VIEW */}
+      {view === 'AUTH' && (
+        <div className="flex-1 flex flex-col p-8 justify-center bg-slate-50">
+          <div className="mb-12 text-center">
+            <div className="w-20 h-20 bg-slate-900 rounded-3xl flex items-center justify-center text-white mx-auto mb-6 shadow-xl rotate-3">
+              <Bird className="w-12 h-12" />
+            </div>
+            <h1 className="text-4xl font-black tracking-tight text-slate-900">FalconWeight</h1>
+            <p className="text-slate-500 mt-2 font-medium">Gestión profesional de cetrería</p>
+            {IS_MOCK_MODE && (
+              <span className="mt-4 inline-block px-3 py-1 bg-amber-100 text-amber-700 text-[10px] font-black uppercase rounded-full border border-amber-200">
+                Modo Local Activado
+              </span>
+            )}
+          </div>
+          <div className="space-y-4">
+            <div className="relative">
+              <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+              <input type="email" placeholder="Tu Email" value={email} onChange={e => setEmail(e.target.value)} className="w-full pl-12 pr-4 py-4 bg-white border border-slate-200 rounded-2xl focus:ring-4 focus:ring-slate-900/5 focus:border-slate-900 outline-none transition-all" />
+            </div>
+            <div className="relative">
+              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+              <input type="password" placeholder="Contraseña" value={password} onChange={e => setPassword(e.target.value)} className="w-full pl-12 pr-4 py-4 bg-white border border-slate-200 rounded-2xl focus:ring-4 focus:ring-slate-900/5 focus:border-slate-900 outline-none transition-all" />
+            </div>
+            <button onClick={() => handleAuth(true)} className="w-full py-4 bg-slate-900 text-white font-bold rounded-2xl shadow-xl active:scale-95 transition-transform">Entrar</button>
+            <button onClick={() => handleAuth(false)} className="w-full py-2 text-slate-500 font-bold text-sm">Crear nueva cuenta</button>
+          </div>
+        </div>
+      )}
+
+      {/* HOME VIEW */}
       {view === 'HOME' && (
         <>
-          <header className="p-6 bg-white border-b flex justify-between items-center sticky top-0 z-20">
+          <header className="p-6 border-b flex justify-between items-center bg-white sticky top-0 z-10">
             <div>
-              <div className="flex items-center gap-2 mb-0.5">
-                <h1 className="text-2xl font-black text-slate-900">Mis Halcones</h1>
-                {IS_MOCK ? (
-                  <Smartphone className="w-4 h-4 text-amber-500" />
-                ) : (
-                  <ShieldCheck className="w-4 h-4 text-emerald-500" />
-                )}
-              </div>
-              <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">{hawks.length} registrados</p>
+              <h2 className="text-2xl font-black flex items-center gap-2">
+                Mis Halcones 
+                {IS_MOCK_MODE ? <Smartphone className="w-4 h-4 text-amber-500" /> : <ShieldCheck className="w-4 h-4 text-emerald-500" />}
+              </h2>
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{hawks.length} Registrados</p>
             </div>
-            <div className="flex gap-3">
-              <button onClick={() => supabase.auth.signOut()} title="Cerrar sesión" className="w-10 h-10 flex items-center justify-center text-slate-400 hover:text-red-500 bg-slate-50 rounded-xl transition-colors"><LogOut className="w-5 h-5" /></button>
-              <button onClick={() => setView('ADD_HAWK')} className="w-10 h-10 flex items-center justify-center bg-slate-900 text-white rounded-xl shadow-lg active:scale-90 transition-transform"><Plus className="w-6 h-6" /></button>
+            <div className="flex gap-2">
+              <button onClick={() => supabase.auth.signOut()} className="p-2 text-slate-400 hover:text-red-500"><LogOut className="w-5 h-5" /></button>
+              <button onClick={() => setView('ADD_HAWK')} className="p-3 bg-slate-900 text-white rounded-xl shadow-lg active:scale-90 transition-transform"><Plus className="w-6 h-6" /></button>
             </div>
           </header>
-          
-          <main className="flex-1 overflow-y-auto p-4 space-y-4 pb-24 no-scrollbar">
+          <main className="flex-1 overflow-y-auto p-4 space-y-4 no-scrollbar">
             {hawks.length === 0 ? (
-              <div className="text-center py-32 space-y-4 opacity-40">
-                <div className="w-20 h-20 bg-slate-200 rounded-full flex items-center justify-center mx-auto"><Bird className="w-10 h-10" /></div>
-                <p className="font-bold">Añade tu primer halcón</p>
+              <div className="text-center py-20 opacity-30 flex flex-col items-center">
+                <Bird className="w-16 h-16 mb-4" />
+                <p className="font-bold">Añade tu primer halcón para empezar</p>
               </div>
             ) : (
-              hawks.map(hawk => (
-                <div key={hawk.id} onClick={() => { setSelectedHawk(hawk); setView('HAWK_DETAIL'); }} className="group bg-white p-5 rounded-3xl border border-slate-200 shadow-sm flex justify-between items-center active:scale-[0.98] transition-all cursor-pointer">
+              hawks.map(h => (
+                <div key={h.id} onClick={() => { setSelectedHawk(h); setView('HAWK_DETAIL'); }} className="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm flex items-center justify-between active:scale-[0.98] transition-all cursor-pointer">
                   <div className="flex items-center gap-4">
-                    <div className="w-14 h-14 bg-slate-100 rounded-2xl flex items-center justify-center group-hover:bg-slate-900 group-hover:text-white transition-colors">
-                      <Bird className="w-7 h-7" />
+                    <div className="w-14 h-14 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-900">
+                      <Bird className="w-8 h-8" />
                     </div>
                     <div>
-                      <h3 className="font-bold text-lg text-slate-900">{hawk.name}</h3>
-                      <p className="text-xs font-semibold text-slate-400">{hawk.species}</p>
+                      <h3 className="font-bold text-lg">{h.name}</h3>
+                      <p className="text-xs font-semibold text-slate-400">{h.species}</p>
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="text-[10px] font-black text-slate-300 uppercase">Hoy</p>
-                    <p className="text-xl font-black text-slate-900">{hawk.entries[0]?.weightBefore || '--'}<span className="text-sm ml-0.5 font-bold">g</span></p>
+                    <p className="text-[10px] font-black text-slate-300 uppercase">Último Peso</p>
+                    <p className="text-xl font-black">{h.entries[0]?.weightBefore || '--'}<span className="text-sm ml-1 text-slate-400">g</span></p>
                   </div>
                 </div>
               ))
@@ -271,116 +220,184 @@ const AppContent: React.FC = () => {
         </>
       )}
 
+      {/* ADD HAWK VIEW */}
       {view === 'ADD_HAWK' && (
         <>
-          <header className="p-6 bg-white border-b flex items-center gap-4">
+          <header className="p-6 border-b flex items-center gap-4">
             <button onClick={() => setView('HOME')} className="p-2 bg-slate-50 rounded-xl"><ChevronLeft className="w-6 h-6" /></button>
-            <h1 className="text-xl font-black">Nuevo Halcón</h1>
+            <h2 className="text-xl font-black">Nuevo Halcón</h2>
           </header>
-          <main className="p-6 space-y-5">
-            <input type="text" value={newHawkName} onChange={e => setNewHawkName(e.target.value)} placeholder="Nombre" className="w-full p-4 rounded-2xl border border-slate-200 bg-white font-bold" />
-            <input type="text" value={newHawkSpecies} onChange={e => setNewHawkSpecies(e.target.value)} placeholder="Especie" className="w-full p-4 rounded-2xl border border-slate-200 bg-white font-bold" />
-            <input type="number" value={newHawkTargetWeight} onChange={e => setNewHawkTargetWeight(e.target.value)} placeholder="Peso Meta (g)" className="w-full p-4 rounded-2xl border border-slate-200 bg-white font-bold" />
-            <button onClick={async () => {
-              if (user && newHawkName) {
-                await createHawk(newHawkName, newHawkSpecies, parseInt(newHawkTargetWeight) || 0, user.id);
-                await refreshData(user.id);
-                setView('HOME');
-              }
-            }} className="w-full bg-slate-900 text-white font-bold py-5 rounded-2xl shadow-xl">Guardar</button>
+          <main className="p-6 space-y-4">
+            <div className="space-y-2">
+              <label className="text-xs font-black text-slate-400 uppercase ml-2">Identificación</label>
+              <input type="text" placeholder="Nombre (ej: Zeus)" value={hawkName} onChange={e => setHawkName(e.target.value)} className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold" />
+              <input type="text" placeholder="Especie (ej: Falco peregrinus)" value={hawkSpecies} onChange={e => setHawkSpecies(e.target.value)} className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold" />
+            </div>
+            <div className="space-y-2">
+              <label className="text-xs font-black text-slate-400 uppercase ml-2">Objetivo</label>
+              <div className="relative">
+                <Scale className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300" />
+                <input type="number" placeholder="Peso de vuelo meta (g)" value={hawkTargetWeight} onChange={e => setHawkTargetWeight(e.target.value)} className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold" />
+              </div>
+            </div>
+            <button onClick={addHawk} className="w-full py-5 bg-slate-900 text-white font-black rounded-2xl shadow-xl mt-4">Registrar Halcón</button>
           </main>
         </>
       )}
 
+      {/* HAWK DETAIL VIEW */}
       {view === 'HAWK_DETAIL' && selectedHawk && (
         <>
-          <header className="p-6 bg-white border-b flex justify-between items-center z-10 shadow-sm">
+          <header className="p-6 border-b flex items-center justify-between bg-white z-10 shadow-sm">
             <div className="flex items-center gap-3">
               <button onClick={() => setView('HOME')} className="p-2 bg-slate-50 rounded-xl"><ChevronLeft className="w-5 h-5" /></button>
-              <h1 className="text-xl font-black">{selectedHawk.name}</h1>
+              <h2 className="text-xl font-black">{selectedHawk.name}</h2>
             </div>
-            <button onClick={async () => { if(confirm('¿Borrar?')) { await deleteHawk(selectedHawk.id); setView('HOME'); refreshData(user.id); } }} className="p-2 text-slate-300"><Trash2 className="w-5 h-5" /></button>
+            <button onClick={() => deleteHawk(selectedHawk.id)} className="p-2 text-slate-300 hover:text-red-500"><Trash2 className="w-5 h-5" /></button>
           </header>
-          <main className="flex-1 overflow-y-auto p-4 space-y-6 pb-28">
+          <main className="flex-1 overflow-y-auto p-4 space-y-6 pb-24 no-scrollbar">
             <div className="grid grid-cols-2 gap-4">
-              <div className="bg-slate-900 text-white p-5 rounded-3xl">
-                <p className="text-[10px] opacity-60 font-black mb-1">PESO ACTUAL</p>
-                <h4 className="text-3xl font-black">{selectedHawk.entries[0]?.weightBefore || '--'}g</h4>
+              <div className="bg-slate-900 text-white p-5 rounded-3xl shadow-lg relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-20 h-20 bg-white/5 rounded-full -mr-10 -mt-10" />
+                <p className="text-[10px] font-black opacity-60 mb-1">PESO ACTUAL</p>
+                <div className="flex items-baseline gap-1">
+                  <span className="text-3xl font-black">{selectedHawk.entries[0]?.weightBefore || '--'}</span>
+                  <span className="text-sm font-bold opacity-60">g</span>
+                </div>
               </div>
-              <div className="bg-white p-5 rounded-3xl border border-slate-200">
-                <p className="text-[10px] text-slate-400 font-black mb-1">META</p>
-                <h4 className="text-3xl font-black">{selectedHawk.targetWeight}g</h4>
+              <div className="bg-white p-5 rounded-3xl border border-slate-200 flex flex-col justify-center">
+                <p className="text-[10px] font-black text-slate-400 mb-1">PESO META</p>
+                <div className="flex items-baseline gap-1">
+                  <span className="text-3xl font-black text-slate-900">{selectedHawk.targetWeight}</span>
+                  <span className="text-sm font-bold text-slate-400">g</span>
+                </div>
               </div>
             </div>
-            <div className="h-44 w-full bg-white p-4 rounded-3xl border border-slate-200">
+
+            {chartData.length > 0 && (
+              <div className="bg-white p-4 rounded-3xl border border-slate-100 shadow-sm h-48">
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={chartData}>
+                    <defs>
+                      <linearGradient id="colorPeso" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#0f172a" stopOpacity={0.1}/>
+                        <stop offset="95%" stopColor="#0f172a" stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                    <Area type="monotone" dataKey="peso" stroke="#0f172a" fill="#0f172a10" strokeWidth={3} />
+                    <XAxis dataKey="fecha" axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 'bold', fill: '#94a3b8'}} />
+                    <Tooltip contentStyle={{borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)'}} />
+                    <Area type="monotone" dataKey="peso" stroke="#0f172a" strokeWidth={3} fillOpacity={1} fill="url(#colorPeso)" />
                   </AreaChart>
                 </ResponsiveContainer>
-            </div>
-            <div className="space-y-3">
-                {selectedHawk.entries.map(entry => (
-                    <div key={entry.id} className="bg-white p-5 rounded-3xl border border-slate-100 flex justify-between items-center">
-                        <span className="font-bold capitalize">{new Date(entry.date).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric' })}</span>
-                        <span className="font-black">{entry.weightBefore}g → {entry.weightAfter}g</span>
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                <Calendar className="w-3 h-3" /> Historial Reciente
+              </h4>
+              {selectedHawk.entries.length === 0 ? (
+                <div className="p-10 text-center bg-slate-50 rounded-3xl border-2 border-dashed border-slate-100 text-slate-400 text-sm font-bold">
+                  Sin registros hoy
+                </div>
+              ) : (
+                selectedHawk.entries.slice(0, 10).map(e => (
+                  <div key={e.id} className="bg-white p-4 rounded-2xl border border-slate-50 shadow-sm flex items-center justify-between">
+                    <div>
+                      <p className="font-bold text-sm capitalize">{new Date(e.date).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' })}</p>
+                      <div className="flex gap-2 mt-1">
+                        {e.foodItems.map((f, idx) => (
+                          <span key={idx} className="text-[10px] bg-slate-100 px-2 py-0.5 rounded-full font-bold text-slate-600">
+                            {f.type} ({f.portion})
+                          </span>
+                        ))}
+                      </div>
                     </div>
-                ))}
+                    <div className="text-right">
+                      <p className="font-black text-slate-900">{e.weightBefore}g → {e.weightAfter}g</p>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </main>
-          <div className="fixed bottom-8 left-0 right-0 px-8">
-            <button onClick={() => setView('ADD_ENTRY')} className="w-full bg-slate-900 text-white py-5 rounded-2xl shadow-2xl font-black">
-              ANOTAR PESO
+          <div className="fixed bottom-6 left-1/2 -translate-x-1/2 w-full max-w-xs px-4">
+            <button onClick={() => setView('ADD_ENTRY')} className="w-full py-5 bg-slate-900 text-white font-black rounded-2xl shadow-2xl flex items-center justify-center gap-3 active:scale-95 transition-all">
+              <TrendingUp className="w-5 h-5" /> ANOTAR PESO HOY
             </button>
           </div>
         </>
       )}
 
+      {/* ADD ENTRY VIEW */}
       {view === 'ADD_ENTRY' && selectedHawk && (
         <>
-          <header className="p-6 bg-white border-b flex items-center gap-4">
+          <header className="p-6 border-b flex items-center gap-4">
             <button onClick={() => setView('HAWK_DETAIL')} className="p-2 bg-slate-50 rounded-xl"><ChevronLeft className="w-6 h-6" /></button>
-            <h1 className="text-xl font-black">Registro Diario</h1>
+            <h2 className="text-xl font-black">Registro de {selectedHawk.name}</h2>
           </header>
-          <main className="p-6 space-y-6">
+          <main className="p-6 space-y-6 overflow-y-auto no-scrollbar">
             <div className="grid grid-cols-2 gap-4">
-              <input type="number" value={weightBefore} onChange={e => setWeightBefore(e.target.value)} placeholder="Antes (g)" className="p-5 rounded-2xl border-2 border-slate-100 font-black text-xl" />
-              <input type="number" value={weightAfter} onChange={e => setWeightAfter(e.target.value)} placeholder="Después (g)" className="p-5 rounded-2xl border-2 border-slate-100 font-black text-xl" />
-            </div>
-            <div className="bg-slate-50 p-5 rounded-3xl border-2 border-dashed border-slate-200 space-y-4">
-                <div className="grid grid-cols-2 gap-2">
-                  <select value={selectedFoodType} onChange={e => setSelectedFoodType(e.target.value as FoodType)} className="p-3 rounded-xl border">
-                    {Object.values(FoodType).map(v => <option key={v} value={v}>{v}</option>)}
-                  </select>
-                  <select value={selectedFoodPortion} onChange={e => setSelectedFoodPortion(e.target.value as FoodPortion)} className="p-3 rounded-xl border">
-                    {Object.values(FoodPortion).map(v => <option key={v} value={v}>{v}</option>)}
-                  </select>
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-slate-400 uppercase ml-2">Peso Ayunas</label>
+                <div className="relative">
+                  <input type="number" placeholder="Antes" value={wBefore} onChange={e => setWBefore(e.target.value)} className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-black text-center text-2xl" />
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 font-bold text-slate-300">g</span>
                 </div>
-                <button onClick={() => setCurrentFoodItems([...currentFoodItems, { id: generateId(), type: selectedFoodType, portion: selectedFoodPortion, quantity: 1 }])} className="w-full py-2 bg-white border rounded-xl text-xs font-bold">
-                  + Añadir porción
-                </button>
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-slate-400 uppercase ml-2">Peso Tras Cebar</label>
+                <div className="relative">
+                  <input type="number" placeholder="Después" value={wAfter} onChange={e => setWAfter(e.target.value)} className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-black text-center text-2xl" />
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 font-bold text-slate-300">g</span>
+                </div>
+              </div>
             </div>
-            <button onClick={async () => {
-              if (selectedHawk && weightBefore && weightAfter) {
-                await saveEntry(selectedHawk.id, parseFloat(weightBefore), parseFloat(weightAfter), currentFoodItems);
-                await refreshData(user.id);
-                const updated = (await getHawks(user.id)).find(h => h.id === selectedHawk.id);
-                if (updated) setSelectedHawk(updated);
-                setView('HAWK_DETAIL');
-              }
-            }} className="w-full bg-slate-900 text-white py-5 rounded-2xl font-black shadow-xl">Guardar Registro</button>
+
+            <div className="space-y-3 bg-slate-50 p-6 rounded-3xl border-2 border-dashed border-slate-200">
+              <h4 className="text-xs font-black text-slate-400 uppercase flex items-center gap-2 mb-2">
+                <Utensils className="w-3 h-3" /> Composición Comida
+              </h4>
+              
+              <div className="flex flex-wrap gap-2">
+                {Object.values(FoodType).map(type => (
+                  <button key={type} onClick={() => {
+                    const existing = currentFood.find(f => f.type === type);
+                    if (existing) {
+                      setCurrentFood(currentFood.filter(f => f.type !== type));
+                    } else {
+                      setCurrentFood([...currentFood, { id: Math.random().toString(), type, portion: FoodPortion.ENTERO, quantity: 1 }]);
+                    }
+                  }} className={`px-4 py-2 rounded-xl text-xs font-bold border-2 transition-all ${currentFood.find(f => f.type === type) ? 'bg-slate-900 border-slate-900 text-white' : 'bg-white border-slate-200 text-slate-400'}`}>
+                    {type}
+                  </button>
+                ))}
+              </div>
+
+              {currentFood.length > 0 && (
+                <div className="mt-4 space-y-2">
+                  {currentFood.map(item => (
+                    <div key={item.id} className="flex items-center gap-2 bg-white p-3 rounded-xl border border-slate-100">
+                      <span className="text-xs font-black text-slate-900 flex-1">{item.type}</span>
+                      <select value={item.portion} onChange={e => {
+                        setCurrentFood(currentFood.map(f => f.id === item.id ? { ...f, portion: e.target.value as FoodPortion } : f));
+                      }} className="bg-slate-50 text-[10px] font-bold p-1 rounded-lg border-none outline-none">
+                        {Object.values(FoodPortion).map(v => <option key={v} value={v}>{v}</option>)}
+                      </select>
+                      <button onClick={() => setCurrentFood(currentFood.filter(f => f.id !== item.id))} className="text-red-400 p-1"><Plus className="w-4 h-4 rotate-45" /></button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <button onClick={addEntry} className="w-full py-5 bg-slate-900 text-white font-black rounded-2xl shadow-xl mt-4 active:scale-95 transition-all">Guardar Registro</button>
           </main>
         </>
       )}
     </div>
   );
 };
-
-const App: React.FC = () => (
-  <ErrorBoundary>
-    <AppContent />
-  </ErrorBoundary>
-);
 
 export default App;

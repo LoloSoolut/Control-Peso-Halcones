@@ -1,9 +1,10 @@
-
 export enum FoodType {
   PALOMA = 'Paloma',
   CODORNIZ = 'Codorniz',
   POLLITO = 'Pollito',
-  PATO = 'Pato'
+  PATO = 'Pato',
+  CONEJO = 'Conejo',
+  RATA = 'Rata'
 }
 
 export enum FoodPortion {
@@ -11,12 +12,12 @@ export enum FoodPortion {
   PATA = 'Pata',
   PECHUGA = 'Pechuga',
   CABEZA = 'Cabeza',
-  ENTERO = 'Entero'
+  ENTERO = 'Entero',
+  MEDIO = 'Medio'
 }
 
-export interface FoodEntry {
+export interface FoodItem {
   id: string;
-  entry_id: string;
   type: FoodType;
   portion: FoodPortion;
   quantity: number;
@@ -24,22 +25,19 @@ export interface FoodEntry {
 
 export interface DailyEntry {
   id: string;
-  hawk_id: string;
   date: string;
   weightBefore: number;
   weightAfter: number;
-  foodItems: FoodEntry[];
+  foodItems: FoodItem[];
   notes?: string;
 }
 
 export interface Hawk {
   id: string;
-  user_id: string;
   name: string;
   species: string;
   targetWeight: number;
   entries: DailyEntry[];
-  createdAt: string;
 }
 
-export type ViewState = 'AUTH' | 'HOME' | 'HAWK_DETAIL' | 'ADD_ENTRY' | 'ADD_HAWK';
+export type ViewState = 'AUTH' | 'HOME' | 'HAWK_DETAIL' | 'ADD_HAWK' | 'ADD_ENTRY';
