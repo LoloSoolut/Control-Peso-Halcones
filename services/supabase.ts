@@ -1,6 +1,14 @@
 import { createClient } from '@supabase/supabase-js';
 
-// URL y Key de ejemplo. Si son estas, se activará el Modo Local automáticamente.
+// Fallback manual de ID para navegadores móviles antiguos o sin HTTPS
+const safeUUID = () => {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
+};
+
+// URL y Key de ejemplo.
 const supabaseUrl = 'https://placeholder-project.supabase.co'; 
 const supabaseKey = 'placeholder-key'; 
 
@@ -86,7 +94,7 @@ class MockSupabase {
       },
       insert: (rows: any[]) => {
         const current = getData();
-        const newRows = rows.map(r => ({ ...r, id: crypto.randomUUID(), created_at: new Date().toISOString() }));
+        const newRows = rows.map(r => ({ ...r, id: safeUUID(), created_at: new Date().toISOString() }));
         saveData([...current, ...newRows]);
         return createResponse(newRows[0]);
       },
@@ -106,11 +114,10 @@ try {
   if (isValidConfig()) {
     supabaseClient = createClient(supabaseUrl, supabaseKey);
   } else {
-    console.warn("FalconWeight: Credenciales de Supabase no válidas. Activando Almacenamiento Local.");
+    console.warn("FalconWeight: Modo Local Activado.");
     supabaseClient = new MockSupabase();
   }
 } catch (e) {
-  console.error("FalconWeight: Error al inicializar Supabase. Usando Mock.", e);
   supabaseClient = new MockSupabase();
 }
 
