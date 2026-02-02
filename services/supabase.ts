@@ -108,17 +108,17 @@ class MockSupabase {
   }
 }
 
-let supabaseClient;
+let supabaseClient: any;
 
 try {
   if (isValidConfig()) {
     supabaseClient = createClient(supabaseUrl, supabaseKey);
   } else {
-    console.warn("FalconWeight: Modo Local Activado.");
     supabaseClient = new MockSupabase();
   }
 } catch (e) {
+  console.warn("Supabase init fallback:", e);
   supabaseClient = new MockSupabase();
 }
 
-export const supabase = supabaseClient as any;
+export const supabase = supabaseClient;

@@ -104,9 +104,11 @@
         const errorEl = document.getElementById('critical-error');
 
         function showError(msg) {
-            errorEl.style.display = 'block';
-            errorEl.innerText = "SISTEMA: " + msg;
-            if (statusEl) statusEl.innerText = "ERROR";
+            if (errorEl) {
+                errorEl.style.display = 'block';
+                errorEl.innerText = "ERROR SISTEMA: " + msg;
+            }
+            if (statusEl) statusEl.innerText = "FALLO";
         }
 
         window.onerror = (msg, url, line) => showError(msg + " (L:" + line + ")");
@@ -122,13 +124,13 @@
           }
         });
 
-        // Fail-safe de 15 segundos para móviles
+        // Fail-safe de 25 segundos para evitar bloqueos permanentes
         setTimeout(() => {
             const loader = document.getElementById('loader');
             if (loader && !loader.classList.contains('hidden')) {
-                showError("Tiempo agotado. El mapa de módulos no responde.");
+                showError("Tiempo excedido. Recarga la página o revisa tu conexión.");
             }
-        }, 15000);
+        }, 25000);
     </script>
     <script type="module" src="index.tsx"></script>
 </body>

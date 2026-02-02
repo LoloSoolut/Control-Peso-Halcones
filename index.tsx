@@ -17,14 +17,15 @@ const rootElement = document.getElementById('root');
 if (rootElement) {
   try {
     const root = ReactDOM.createRoot(rootElement);
+    
+    // Notificamos que el JS ha cargado correctamente e iniciamos el render
+    setReady();
+    
     root.render(
       <React.StrictMode>
         <App />
       </React.StrictMode>
     );
-    
-    // Notificar éxito inmediato
-    setTimeout(setReady, 50);
   } catch (err: any) {
     notify("FALLO CRÍTICO");
     console.error(err);
