@@ -10,7 +10,7 @@ const setReady = () => {
   window.postMessage({ type: 'APP_READY' }, '*');
 };
 
-notify("Sincronizando...");
+notify("CONECTANDO...");
 
 const rootElement = document.getElementById('root');
 
@@ -23,14 +23,12 @@ if (rootElement) {
       </React.StrictMode>
     );
     
-    // Notificar éxito
-    setTimeout(() => {
-        setReady();
-        console.log("Falcon: Ready");
-    }, 100);
-    
+    // Notificar éxito inmediato
+    setTimeout(setReady, 50);
   } catch (err: any) {
-    notify("Error de inicio");
-    console.error("Critical Start Error:", err);
+    notify("FALLO CRÍTICO");
+    console.error(err);
   }
+} else {
+    notify("NO ROOT FOUND");
 }
