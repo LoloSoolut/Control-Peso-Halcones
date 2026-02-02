@@ -93,7 +93,7 @@
             <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 7h.01"></path><path d="M3.4 18c.1 1 .6 1.1 1.3 1.1h14.6c.7 0 1.2-.1 1.3-1.1l.4-4.5c.1-1.1-.7-2.1-1.8-2.3L15 10.5V7a3 3 0 1 0-6 0v3.5l-4.2.7c-1.1.2-1.9 1.2-1.8 2.3l.4 4.5Z"></path></svg>
         </div>
         <h1 class="text-xl font-black tracking-tight">FalconWeight</h1>
-        <p id="loading-status" class="status-text">Cargando módulos...</p>
+        <p id="loading-status" class="status-text">Iniciando sistema...</p>
     </div>
 
     <div id="root"></div>
@@ -106,13 +106,13 @@
         function showError(msg) {
             if (errorEl) {
                 errorEl.style.display = 'block';
-                errorEl.innerText = "ERROR SISTEMA: " + msg;
+                errorEl.innerText = "SISTEMA: " + msg;
             }
-            if (statusEl) statusEl.innerText = "FALLO";
+            if (statusEl) statusEl.innerText = "ERROR";
         }
 
-        window.onerror = (msg, url, line) => showError(msg + " (L:" + line + ")");
-        window.onunhandledrejection = (e) => showError("Fallo: " + (e.reason?.message || e.reason));
+        window.onerror = (msg, url, line) => showError(msg + " (Fila:" + line + ")");
+        window.onunhandledrejection = (e) => showError("Fallo asíncrono: " + (e.reason?.message || e.reason));
 
         window.addEventListener('message', (e) => {
           if (e.data.type === 'STATUS_UPDATE' && statusEl) {
@@ -124,13 +124,13 @@
           }
         });
 
-        // Fail-safe de 25 segundos para evitar bloqueos permanentes
+        // Fail-safe de 15 segundos: Si en 15s no ha cargado, algo va mal con los módulos
         setTimeout(() => {
             const loader = document.getElementById('loader');
             if (loader && !loader.classList.contains('hidden')) {
-                showError("Tiempo excedido. Recarga la página o revisa tu conexión.");
+                showError("Tiempo agotado. Reintenta recargar la página.");
             }
-        }, 25000);
+        }, 15000);
     </script>
     <script type="module" src="index.tsx"></script>
 </body>
