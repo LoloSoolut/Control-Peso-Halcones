@@ -10,7 +10,7 @@ const setReady = () => {
   window.postMessage({ type: 'APP_READY' }, '*');
 };
 
-notify("Cargando Cetrería...");
+notify("Sincronizando...");
 
 const rootElement = document.getElementById('root');
 
@@ -23,14 +23,14 @@ if (rootElement) {
       </React.StrictMode>
     );
     
-    // Pequeño retardo para asegurar que el navegador ha pintado la app antes de quitar el splash
+    // Notificar éxito
     setTimeout(() => {
         setReady();
-        console.log("Falcon: Sistema operativo");
-    }, 150);
+        console.log("Falcon: Ready");
+    }, 100);
     
-  } catch (err) {
-    notify("Error de renderizado");
-    console.error(err);
+  } catch (err: any) {
+    notify("Error de inicio");
+    console.error("Critical Start Error:", err);
   }
 }
