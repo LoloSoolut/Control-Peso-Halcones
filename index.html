@@ -13,13 +13,13 @@
         }
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #f8fafc;
+            background-color: #0f172a; /* Fondo oscuro inicial para confirmar carga */
             margin: 0;
             padding: 0;
             height: 100vh;
             display: flex;
             flex-direction: column;
-            overscroll-behavior-y: contain;
+            overflow: hidden;
         }
         #root {
             flex: 1;
@@ -32,17 +32,36 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            background: #f8fafc;
+            background: #0f172a;
+            color: white;
+            text-align: center;
+        }
+        .logo-placeholder {
+            width: 80px;
+            height: 80px;
+            background: white;
+            border-radius: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 24px;
             color: #0f172a;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3);
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.05); opacity: 0.8; }
+            100% { transform: scale(1); opacity: 1; }
         }
         .spinner {
-            width: 40px;
-            height: 40px;
-            border: 4px solid #e2e8f0;
-            border-top: 4px solid #0f172a;
+            width: 24px;
+            height: 24px;
+            border: 3px solid rgba(255,255,255,0.1);
+            border-top: 3px solid white;
             border-radius: 50%;
             animation: spin 1s linear infinite;
-            margin-bottom: 1rem;
+            margin-top: 16px;
         }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
@@ -65,27 +84,26 @@
 <body>
     <div id="root">
         <div class="loading-screen">
+            <div class="logo-placeholder">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 7h.01"></path><path d="M3.4 18c.1 1 .6 1.1 1.3 1.1h14.6c.7 0 1.2-.1 1.3-1.1l.4-4.5c.1-1.1-.7-2.1-1.8-2.3L15 10.5V7a3 3 0 1 0-6 0v3.5l-4.2.7c-1.1.2-1.9 1.2-1.8 2.3l.4 4.5Z"></path></svg>
+            </div>
+            <h1 style="font-weight: 900; font-size: 24px; margin: 0; letter-spacing: -0.02em;">FalconWeight Pro</h1>
+            <p style="font-size: 14px; opacity: 0.5; margin-top: 8px;">Iniciando motor de cetrería...</p>
             <div class="spinner"></div>
-            <p style="font-weight: 700; font-size: 14px; opacity: 0.5; letter-spacing: 0.05em;">CARGANDO SISTEMA...</p>
         </div>
     </div>
     <script>
-        // Capturador de errores mejorado
+        console.log("HTML cargado. Esperando módulos...");
         window.onerror = function(msg, url, line, col, error) {
-            console.error("Error crítico detectado:", msg, error);
+            console.error("Error crítico:", msg);
             const root = document.getElementById('root');
             if (root) {
                 root.innerHTML = `
-                    <div style="padding: 40px; text-align: center; font-family: 'Inter', sans-serif; background: white; height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center;">
-                        <div style="background: #fee2e2; color: #ef4444; width: 64px; height: 64px; border-radius: 20px; display: flex; align-items: center; justify-content: center; margin-bottom: 24px;">
-                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
-                        </div>
-                        <h2 style="color: #0f172a; font-weight: 800; margin-bottom: 8px; font-size: 20px;">Error de Inicialización</h2>
-                        <p style="color: #64748b; font-size: 14px; max-width: 280px; margin-bottom: 32px; line-height: 1.5;">La aplicación no ha podido cargar los módulos necesarios. Esto puede deberse a la conexión o a un conflicto de caché.</p>
-                        <button onclick="location.reload()" style="padding: 16px 32px; background: #0f172a; color: white; border: none; border-radius: 16px; font-weight: 700; font-size: 14px; cursor: pointer; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);">Reintentar ahora</button>
-                        <div style="margin-top: 40px; text-align: left; background: #f1f5f9; padding: 12px; border-radius: 12px; max-width: 90%;">
-                            <code style="font-size: 10px; color: #475569; word-break: break-all;">${msg}</code>
-                        </div>
+                    <div style="padding: 40px; text-align: center; color: white; background: #0f172a; height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                        <h2 style="color: #ef4444;">Error de sistema</h2>
+                        <p style="opacity: 0.7;">No se pudo cargar la lógica de la aplicación.</p>
+                        <pre style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 12px; font-size: 10px; margin-top: 20px; color: #94a3b8; max-width: 90%; white-space: pre-wrap;">${msg}</pre>
+                        <button onclick="location.reload()" style="margin-top: 30px; padding: 15px 30px; background: white; color: #0f172a; border: none; border-radius: 12px; font-weight: bold; cursor: pointer;">Reintentar</button>
                     </div>
                 `;
             }
