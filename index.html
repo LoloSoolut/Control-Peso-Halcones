@@ -3,21 +3,27 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>FalconWeight Pro</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --sat: env(safe-area-inset-top);
+            --sab: env(safe-area-inset-bottom);
+        }
         body {
             font-family: 'Inter', sans-serif;
             background-color: #f8fafc;
             margin: 0;
             padding: 0;
-            overflow: hidden; /* Evita rebotes extraños en móviles */
+            height: 100vh;
+            overscroll-behavior-y: contain; /* Evita el pull-to-refresh accidentado */
         }
         #root {
             height: 100vh;
-            width: 100vw;
+            display: flex;
+            flex-direction: column;
         }
         .no-scrollbar::-webkit-scrollbar {
             display: none;
@@ -25,6 +31,13 @@
         .no-scrollbar {
             -ms-overflow-style: none;
             scrollbar-width: none;
+        }
+        /* Ajuste para notch en móviles */
+        header {
+            padding-top: calc(1rem + var(--sat));
+        }
+        .safe-bottom {
+            padding-bottom: calc(1.5rem + var(--sab));
         }
     </style>
 <script type="importmap">
@@ -44,5 +57,6 @@
 </head>
 <body>
     <div id="root"></div>
+    <script type="module" src="index.tsx"></script>
 </body>
 </html>
