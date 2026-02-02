@@ -2,10 +2,13 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Bird, Plus, ChevronLeft, Trash2, LogOut, 
   Scale, Utensils, Calendar, Target, 
-  Smartphone, ShieldCheck, Mail, Lock, 
-  Loader2, AlertCircle, TrendingUp
+  TrendingUp, Activity, Smartphone, Info,
+  Calculator, ChevronRight, X
 } from 'lucide-react';
-import { Hawk, ViewState, FoodType, FoodPortion, DailyEntry, FoodItem } from './types.ts';
+import { 
+  Hawk, AppView, FoodCategory, FoodPortion, 
+  FoodSelection, DailyEntry, FOOD_WEIGHT_MAP 
+} from './types.ts';
 import { supabase, IS_MOCK_MODE } from './services/supabase.ts';
 import { 
   ResponsiveContainer, AreaChart, Area, 
@@ -13,10 +16,10 @@ import {
 } from 'recharts';
 
 const App: React.FC = () => {
-  const [view, setView] = useState<ViewState>('AUTH');
+  const [view, setView] = useState<AppView>('AUTH');
   const [user, setUser] = useState<any>(null);
   const [hawks, setHawks] = useState<Hawk[]>([]);
-  const [selectedHawk, setSelectedHawk] = useState<Hawk | null>(null);
+  const [selectedHawkId, setSelectedHawkId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   // Form states
@@ -25,41 +28,40 @@ const App: React.FC = () => {
   const [hawkName, setHawkName] = useState('');
   const [hawkSpecies, setHawkSpecies] = useState('');
   const [hawkTargetWeight, setHawkTargetWeight] = useState('');
-  const [wBefore, setWBefore] = useState('');
-  const [wAfter, setWAfter] = useState('');
-  const [currentFood, setCurrentFood] = useState<FoodItem[]>([]);
+  
+  // Entry Form states
+  const [weightBefore, setWeightBefore] = useState('');
+  const [tempSelections, setTempSelections] = useState<FoodSelection[]>([]);
+
+  const selectedHawk = useMemo(() => 
+    hawks.find(h => h.id === selectedHawkId) || null
+  , [hawks, selectedHawkId]);
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session) {
         setUser(session.user);
-        setView('HOME');
         loadData();
+        setView('DASHBOARD');
       } else {
         setUser(null);
         setView('AUTH');
         setLoading(false);
       }
+      window.dispatchEvent(new CustomEvent('app-ready'));
     });
     return () => subscription.unsubscribe();
   }, []);
 
-  const loadData = async () => {
-    setLoading(true);
-    try {
-      // En modo real aquí irían los selects complejos
-      const localHawks = JSON.parse(localStorage.getItem('db_hawks') || '[]');
-      setHawks(localHawks);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
+  const loadData = () => {
+    const local = localStorage.getItem('falcon_db_v2');
+    if (local) setHawks(JSON.parse(local));
+    setLoading(false);
   };
 
   const saveData = (newHawks: Hawk[]) => {
     setHawks(newHawks);
-    localStorage.setItem('db_hawks', JSON.stringify(newHawks));
+    localStorage.setItem('falcon_db_v2', JSON.stringify(newHawks));
   };
 
   const handleAuth = async (isLogin: boolean) => {
@@ -72,6 +74,38 @@ const App: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const calculatePrediction = (hawk: Hawk): number | undefined => {
+    if (hawk.entries.length < 5) return undefined;
+    
+    // Obtenemos los últimos 5 saltos de peso (Pared_Cebado - Peso_Ayunas_Siguiente)
+    // Para simplificar: Promedio de pérdida de peso diaria
+    let totalLoss = 0;
+    let counts = 0;
+    
+    for (let i = 0; i < Math.min(hawk.entries.length - 1, 5); i++) {
+      const today = hawk.entries[i];
+      const nextDay = hawk.entries[i + 1]; // Recordar que guardamos de más nuevo a más viejo
+      // En realidad el índice i+1 es cronológicamente ANTERIOR si ordenamos desc
+      // Usaremos un mapeo cronológico
+    }
+
+    // Algoritmo simplificado: Peso actual cebado - pérdida media (supongamos 10% del peso ganado por noche)
+    // Para el usuario, lo haremos más riguroso calculando la diferencia real entre días
+    const chronological = [...hawk.entries].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    let losses = [];
+    for(let i = 0; i < chronological.length - 1; i++) {
+      const day1_after = chronological[i].weightBefore + chronological[i].totalFoodWeight;
+      const day2_before = chronological[i+1].weightBefore;
+      losses.push(day1_after - day2_before);
+    }
+    
+    if (losses.length === 0) return undefined;
+    const avgLoss = losses.reduce((a, b) => a + b, 0) / losses.length;
+    
+    const latest = chronological[chronological.length - 1];
+    return Math.round((latest.weightBefore + latest.totalFoodWeight) - avgLoss);
   };
 
   const addHawk = () => {
@@ -87,244 +121,264 @@ const App: React.FC = () => {
     setHawkName('');
     setHawkSpecies('');
     setHawkTargetWeight('');
-    setView('HOME');
+    setView('DASHBOARD');
   };
 
   const deleteHawk = (id: string) => {
-    if (!confirm('¿Eliminar este halcón y todos sus registros?')) return;
+    if (!confirm('¿Eliminar halcón?')) return;
     saveData(hawks.filter(h => h.id !== id));
-    setView('HOME');
+    setView('DASHBOARD');
   };
 
-  const addEntry = () => {
-    if (!selectedHawk || !wBefore || !wAfter) return;
-    const entry: DailyEntry = {
-      id: Math.random().toString(36).substr(2, 9),
+  const addFoodToTemp = (cat: FoodCategory, por: FoodPortion) => {
+    const weight = FOOD_WEIGHT_MAP[cat][por] || 0;
+    const existing = tempSelections.find(s => s.category === cat && s.portion === por);
+    if (existing) {
+      setTempSelections(tempSelections.map(s => 
+        s.id === existing.id ? { ...s, quantity: s.quantity + 1 } : s
+      ));
+    } else {
+      setTempSelections([...tempSelections, {
+        id: Math.random().toString(),
+        category: cat,
+        portion: por,
+        quantity: 1
+      }]);
+    }
+  };
+
+  const saveEntry = () => {
+    if (!selectedHawkId || !weightBefore) return;
+    const totalFoodWeight = tempSelections.reduce((acc, curr) => {
+      const w = FOOD_WEIGHT_MAP[curr.category][curr.portion] || 0;
+      return acc + (w * curr.quantity);
+    }, 0);
+
+    const newEntry: DailyEntry = {
+      id: Math.random().toString(),
       date: new Date().toISOString(),
-      weightBefore: parseFloat(wBefore),
-      weightAfter: parseFloat(wAfter),
-      foodItems: [...currentFood]
+      weightBefore: parseFloat(weightBefore),
+      totalFoodWeight,
+      foodSelections: [...tempSelections]
     };
-    
+
     const updatedHawks = hawks.map(h => {
-      if (h.id === selectedHawk.id) {
-        const updatedEntries = [entry, ...h.entries];
-        const updatedHawk = { ...h, entries: updatedEntries };
-        setSelectedHawk(updatedHawk);
-        return updatedHawk;
+      if (h.id === selectedHawkId) {
+        const updated = { ...h, entries: [newEntry, ...h.entries] };
+        // Recalcular predicción para la vista
+        return updated;
       }
       return h;
     });
-    
+
     saveData(updatedHawks);
-    setWBefore('');
-    setWAfter('');
-    setCurrentFood([]);
-    setView('HAWK_DETAIL');
+    setWeightBefore('');
+    setTempSelections([]);
+    setView('HAWK_DETAILS');
   };
 
   const chartData = useMemo(() => {
     if (!selectedHawk) return [];
     return [...selectedHawk.entries]
       .reverse()
-      .slice(-7)
+      .slice(-15)
       .map(e => ({
         fecha: new Date(e.date).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }),
-        peso: e.weightBefore
+        ayunas: e.weightBefore,
+        comida: e.totalFoodWeight,
+        total: e.weightBefore + e.totalFoodWeight
       }));
   }, [selectedHawk]);
 
-  if (loading && view !== 'AUTH') {
-    return (
-      <div className="flex-1 flex flex-col items-center justify-center bg-white">
-        <Loader2 className="w-10 h-10 animate-spin text-slate-900 mb-4" />
-        <p className="font-bold text-slate-400">Sincronizando...</p>
-      </div>
-    );
-  }
+  const prediction = useMemo(() => {
+    if (!selectedHawk) return null;
+    return calculatePrediction(selectedHawk);
+  }, [selectedHawk]);
 
   return (
-    <div className="flex-1 flex flex-col max-w-md mx-auto bg-white shadow-2xl relative overflow-hidden">
+    <div className="flex-1 flex flex-col max-w-md mx-auto bg-[#020617] relative overflow-hidden text-slate-100 shadow-2xl">
       {/* AUTH VIEW */}
       {view === 'AUTH' && (
-        <div className="flex-1 flex flex-col p-8 justify-center bg-slate-50">
-          <div className="mb-12 text-center">
-            <div className="w-20 h-20 bg-slate-900 rounded-3xl flex items-center justify-center text-white mx-auto mb-6 shadow-xl rotate-3">
-              <Bird className="w-12 h-12" />
-            </div>
-            <h1 className="text-4xl font-black tracking-tight text-slate-900">FalconWeight</h1>
-            <p className="text-slate-500 mt-2 font-medium">Gestión profesional de cetrería</p>
-            {IS_MOCK_MODE && (
-              <span className="mt-4 inline-block px-3 py-1 bg-amber-100 text-amber-700 text-[10px] font-black uppercase rounded-full border border-amber-200">
-                Modo Local Activado
-              </span>
-            )}
+        <div className="flex-1 flex flex-col p-8 justify-center items-center text-center">
+          <div className="w-24 h-24 bg-emerald-500 rounded-3xl flex items-center justify-center shadow-[0_0_40px_rgba(16,185,129,0.3)] mb-8 rotate-3">
+            <Bird className="w-14 h-14 text-white" />
           </div>
-          <div className="space-y-4">
-            <div className="relative">
-              <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-              <input type="email" placeholder="Tu Email" value={email} onChange={e => setEmail(e.target.value)} className="w-full pl-12 pr-4 py-4 bg-white border border-slate-200 rounded-2xl focus:ring-4 focus:ring-slate-900/5 focus:border-slate-900 outline-none transition-all" />
-            </div>
-            <div className="relative">
-              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-              <input type="password" placeholder="Contraseña" value={password} onChange={e => setPassword(e.target.value)} className="w-full pl-12 pr-4 py-4 bg-white border border-slate-200 rounded-2xl focus:ring-4 focus:ring-slate-900/5 focus:border-slate-900 outline-none transition-all" />
-            </div>
-            <button onClick={() => handleAuth(true)} className="w-full py-4 bg-slate-900 text-white font-bold rounded-2xl shadow-xl active:scale-95 transition-transform">Entrar</button>
-            <button onClick={() => handleAuth(false)} className="w-full py-2 text-slate-500 font-bold text-sm">Crear nueva cuenta</button>
+          <h1 className="text-4xl font-black tracking-tight mb-2">FalconWeight<span className="text-emerald-500">.</span></h1>
+          <p className="text-slate-400 font-medium mb-12">Control de peso y metabolismo</p>
+          
+          <div className="w-full space-y-4">
+            <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} className="w-full p-4 bg-slate-900 border border-slate-800 rounded-2xl outline-none focus:border-emerald-500 transition-all font-medium" />
+            <input type="password" placeholder="Contraseña" value={password} onChange={e => setPassword(e.target.value)} className="w-full p-4 bg-slate-900 border border-slate-800 rounded-2xl outline-none focus:border-emerald-500 transition-all font-medium" />
+            <button onClick={() => handleAuth(true)} className="w-full py-4 bg-emerald-500 text-white font-black rounded-2xl shadow-xl active:scale-95 transition-all">ACCEDER</button>
+            <button onClick={() => handleAuth(false)} className="w-full py-2 text-slate-500 font-bold text-sm">Crear cuenta nueva</button>
           </div>
         </div>
       )}
 
-      {/* HOME VIEW */}
-      {view === 'HOME' && (
+      {/* DASHBOARD VIEW */}
+      {view === 'DASHBOARD' && (
         <>
-          <header className="p-6 border-b flex justify-between items-center bg-white sticky top-0 z-10">
+          <header className="p-6 pb-2 flex justify-between items-center">
             <div>
-              <h2 className="text-2xl font-black flex items-center gap-2">
-                Mis Halcones 
-                {IS_MOCK_MODE ? <Smartphone className="w-4 h-4 text-amber-500" /> : <ShieldCheck className="w-4 h-4 text-emerald-500" />}
-              </h2>
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{hawks.length} Registrados</p>
+              <h2 className="text-2xl font-black">Mis Halcones</h2>
+              <p className="text-xs font-black text-slate-500 uppercase tracking-widest">{hawks.length} Registros</p>
             </div>
-            <div className="flex gap-2">
-              <button onClick={() => supabase.auth.signOut()} className="p-2 text-slate-400 hover:text-red-500"><LogOut className="w-5 h-5" /></button>
-              <button onClick={() => setView('ADD_HAWK')} className="p-3 bg-slate-900 text-white rounded-xl shadow-lg active:scale-90 transition-transform"><Plus className="w-6 h-6" /></button>
-            </div>
+            <button onClick={() => setView('ADD_HAWK')} className="w-12 h-12 bg-emerald-500 rounded-2xl flex items-center justify-center shadow-lg shadow-emerald-500/20 active:scale-90 transition-all">
+              <Plus className="w-6 h-6 text-white" />
+            </button>
           </header>
+          
           <main className="flex-1 overflow-y-auto p-4 space-y-4 no-scrollbar">
-            {hawks.length === 0 ? (
-              <div className="text-center py-20 opacity-30 flex flex-col items-center">
-                <Bird className="w-16 h-16 mb-4" />
-                <p className="font-bold">Añade tu primer halcón para empezar</p>
-              </div>
-            ) : (
-              hawks.map(h => (
-                <div key={h.id} onClick={() => { setSelectedHawk(h); setView('HAWK_DETAIL'); }} className="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm flex items-center justify-between active:scale-[0.98] transition-all cursor-pointer">
-                  <div className="flex items-center gap-4">
-                    <div className="w-14 h-14 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-900">
-                      <Bird className="w-8 h-8" />
-                    </div>
-                    <div>
-                      <h3 className="font-bold text-lg">{h.name}</h3>
-                      <p className="text-xs font-semibold text-slate-400">{h.species}</p>
-                    </div>
+            {hawks.map(h => (
+              <div key={h.id} onClick={() => { setSelectedHawkId(h.id); setView('HAWK_DETAILS'); }} className="bg-slate-900/50 border border-slate-800 p-5 rounded-3xl flex items-center justify-between group active:bg-slate-800 transition-all">
+                <div className="flex items-center gap-4">
+                  <div className="w-14 h-14 bg-emerald-500/10 rounded-2xl flex items-center justify-center text-emerald-500 group-active:bg-emerald-500 group-active:text-white transition-all">
+                    <Bird className="w-8 h-8" />
                   </div>
-                  <div className="text-right">
-                    <p className="text-[10px] font-black text-slate-300 uppercase">Último Peso</p>
-                    <p className="text-xl font-black">{h.entries[0]?.weightBefore || '--'}<span className="text-sm ml-1 text-slate-400">g</span></p>
+                  <div>
+                    <h3 className="font-bold text-lg">{h.name}</h3>
+                    <p className="text-xs font-semibold text-slate-500">{h.species}</p>
                   </div>
                 </div>
-              ))
+                <div className="text-right">
+                  <p className="text-[10px] font-black text-slate-600 uppercase">Último Peso</p>
+                  <p className="text-xl font-black">{h.entries[0]?.weightBefore || '--'}<span className="text-sm ml-1 text-emerald-500/50">g</span></p>
+                </div>
+              </div>
+            ))}
+            
+            {hawks.length === 0 && (
+              <div className="flex-1 flex flex-col items-center justify-center py-20 text-slate-700">
+                <Bird className="w-16 h-16 opacity-10 mb-4" />
+                <p className="font-bold">No hay halcones registrados</p>
+              </div>
             )}
           </main>
+
+          <nav className="p-6 bg-[#020617] border-t border-slate-900 flex justify-between items-center">
+            <button onClick={() => setView('DASHBOARD')} className="flex flex-col items-center gap-1 text-emerald-500">
+              <Activity className="w-6 h-6" />
+              <span className="text-[10px] font-black">PANEL</span>
+            </button>
+            <button onClick={() => supabase.auth.signOut()} className="flex flex-col items-center gap-1 text-slate-600">
+              <LogOut className="w-6 h-6" />
+              <span className="text-[10px] font-black">SALIR</span>
+            </button>
+          </nav>
         </>
       )}
 
       {/* ADD HAWK VIEW */}
       {view === 'ADD_HAWK' && (
         <>
-          <header className="p-6 border-b flex items-center gap-4">
-            <button onClick={() => setView('HOME')} className="p-2 bg-slate-50 rounded-xl"><ChevronLeft className="w-6 h-6" /></button>
+          <header className="p-6 border-b border-slate-900 flex items-center gap-4">
+            <button onClick={() => setView('DASHBOARD')} className="p-2 bg-slate-900 rounded-xl"><ChevronLeft /></button>
             <h2 className="text-xl font-black">Nuevo Halcón</h2>
           </header>
-          <main className="p-6 space-y-4">
-            <div className="space-y-2">
-              <label className="text-xs font-black text-slate-400 uppercase ml-2">Identificación</label>
-              <input type="text" placeholder="Nombre (ej: Zeus)" value={hawkName} onChange={e => setHawkName(e.target.value)} className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold" />
-              <input type="text" placeholder="Especie (ej: Falco peregrinus)" value={hawkSpecies} onChange={e => setHawkSpecies(e.target.value)} className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold" />
-            </div>
-            <div className="space-y-2">
-              <label className="text-xs font-black text-slate-400 uppercase ml-2">Objetivo</label>
-              <div className="relative">
-                <Scale className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300" />
-                <input type="number" placeholder="Peso de vuelo meta (g)" value={hawkTargetWeight} onChange={e => setHawkTargetWeight(e.target.value)} className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold" />
+          <main className="p-6 space-y-6">
+            <div className="space-y-4">
+              <div className="space-y-1">
+                <label className="text-xs font-black text-slate-500 uppercase ml-2">Nombre</label>
+                <input value={hawkName} onChange={e => setHawkName(e.target.value)} type="text" placeholder="Ej: Zeus" className="w-full p-4 bg-slate-900 border border-slate-800 rounded-2xl font-bold" />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-black text-slate-500 uppercase ml-2">Especie</label>
+                <input value={hawkSpecies} onChange={e => setHawkSpecies(e.target.value)} type="text" placeholder="Ej: Falco Peregrinus" className="w-full p-4 bg-slate-900 border border-slate-800 rounded-2xl font-bold" />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-black text-slate-500 uppercase ml-2">Peso Objetivo (Vuelo)</label>
+                <div className="relative">
+                  <input value={hawkTargetWeight} onChange={e => setHawkTargetWeight(e.target.value)} type="number" placeholder="Peso en gramos" className="w-full p-4 bg-slate-900 border border-slate-800 rounded-2xl font-bold" />
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 font-black text-slate-700">G</span>
+                </div>
               </div>
             </div>
-            <button onClick={addHawk} className="w-full py-5 bg-slate-900 text-white font-black rounded-2xl shadow-xl mt-4">Registrar Halcón</button>
+            <button onClick={addHawk} className="w-full py-5 bg-emerald-500 text-white font-black rounded-3xl shadow-xl shadow-emerald-500/10 active:scale-95 transition-all">REGISTRAR HALCÓN</button>
           </main>
         </>
       )}
 
-      {/* HAWK DETAIL VIEW */}
-      {view === 'HAWK_DETAIL' && selectedHawk && (
+      {/* HAWK DETAILS VIEW */}
+      {view === 'HAWK_DETAILS' && selectedHawk && (
         <>
-          <header className="p-6 border-b flex items-center justify-between bg-white z-10 shadow-sm">
+          <header className="p-6 border-b border-slate-900 flex items-center justify-between bg-[#020617]/80 backdrop-blur sticky top-0 z-20">
             <div className="flex items-center gap-3">
-              <button onClick={() => setView('HOME')} className="p-2 bg-slate-50 rounded-xl"><ChevronLeft className="w-5 h-5" /></button>
+              <button onClick={() => setView('DASHBOARD')} className="p-2 bg-slate-900 rounded-xl"><ChevronLeft className="w-5 h-5" /></button>
               <h2 className="text-xl font-black">{selectedHawk.name}</h2>
             </div>
-            <button onClick={() => deleteHawk(selectedHawk.id)} className="p-2 text-slate-300 hover:text-red-500"><Trash2 className="w-5 h-5" /></button>
+            <button onClick={() => deleteHawk(selectedHawk.id)} className="p-2 text-slate-700 hover:text-red-500"><Trash2 className="w-5 h-5" /></button>
           </header>
-          <main className="flex-1 overflow-y-auto p-4 space-y-6 pb-24 no-scrollbar">
+          
+          <main className="flex-1 overflow-y-auto p-4 space-y-6 pb-28 no-scrollbar">
             <div className="grid grid-cols-2 gap-4">
-              <div className="bg-slate-900 text-white p-5 rounded-3xl shadow-lg relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-20 h-20 bg-white/5 rounded-full -mr-10 -mt-10" />
-                <p className="text-[10px] font-black opacity-60 mb-1">PESO ACTUAL</p>
-                <div className="flex items-baseline gap-1">
-                  <span className="text-3xl font-black">{selectedHawk.entries[0]?.weightBefore || '--'}</span>
+              <div className="bg-emerald-500 p-5 rounded-3xl shadow-lg relative overflow-hidden">
+                <p className="text-[10px] font-black text-emerald-900 uppercase mb-1">Peso Hoy</p>
+                <div className="flex items-baseline gap-1 text-white">
+                  <span className="text-4xl font-black">{selectedHawk.entries[0]?.weightBefore || '--'}</span>
                   <span className="text-sm font-bold opacity-60">g</span>
                 </div>
+                <Activity className="absolute bottom-2 right-2 w-12 h-12 text-white opacity-10" />
               </div>
-              <div className="bg-white p-5 rounded-3xl border border-slate-200 flex flex-col justify-center">
-                <p className="text-[10px] font-black text-slate-400 mb-1">PESO META</p>
-                <div className="flex items-baseline gap-1">
-                  <span className="text-3xl font-black text-slate-900">{selectedHawk.targetWeight}</span>
-                  <span className="text-sm font-bold text-slate-400">g</span>
+              <div className="bg-slate-900 border border-slate-800 p-5 rounded-3xl">
+                <p className="text-[10px] font-black text-slate-500 uppercase mb-1">Peso Vuelo</p>
+                <div className="flex items-baseline gap-1 text-slate-100">
+                  <span className="text-4xl font-black">{selectedHawk.targetWeight}</span>
+                  <span className="text-sm font-bold text-slate-600">g</span>
                 </div>
               </div>
             </div>
 
-            {chartData.length > 0 && (
-              <div className="bg-white p-4 rounded-3xl border border-slate-100 shadow-sm h-48">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={chartData}>
-                    <defs>
-                      <linearGradient id="colorPeso" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#0f172a" stopOpacity={0.1}/>
-                        <stop offset="95%" stopColor="#0f172a" stopOpacity={0}/>
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                    <XAxis dataKey="fecha" axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 'bold', fill: '#94a3b8'}} />
-                    <Tooltip contentStyle={{borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)'}} />
-                    <Area type="monotone" dataKey="peso" stroke="#0f172a" strokeWidth={3} fillOpacity={1} fill="url(#colorPeso)" />
-                  </AreaChart>
-                </ResponsiveContainer>
+            {/* PREDICCIÓN */}
+            <div className="bg-slate-900/30 border border-emerald-500/20 p-5 rounded-3xl flex items-center gap-4">
+              <div className={`p-3 rounded-2xl ${prediction ? 'bg-emerald-500/10 text-emerald-500' : 'bg-slate-800 text-slate-600'}`}>
+                <Calculator className="w-6 h-6" />
               </div>
-            )}
+              <div>
+                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Peso Estimado Mañana</p>
+                <p className="text-xl font-black">
+                  {prediction ? `${prediction}g` : 'Faltan registros (min 5)'}
+                </p>
+              </div>
+            </div>
 
-            <div className="space-y-2">
-              <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                <Calendar className="w-3 h-3" /> Historial Reciente
-              </h4>
-              {selectedHawk.entries.length === 0 ? (
-                <div className="p-10 text-center bg-slate-50 rounded-3xl border-2 border-dashed border-slate-100 text-slate-400 text-sm font-bold">
-                  Sin registros hoy
-                </div>
-              ) : (
-                selectedHawk.entries.slice(0, 10).map(e => (
-                  <div key={e.id} className="bg-white p-4 rounded-2xl border border-slate-50 shadow-sm flex items-center justify-between">
-                    <div>
-                      <p className="font-bold text-sm capitalize">{new Date(e.date).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' })}</p>
-                      <div className="flex gap-2 mt-1">
-                        {e.foodItems.map((f, idx) => (
-                          <span key={idx} className="text-[10px] bg-slate-100 px-2 py-0.5 rounded-full font-bold text-slate-600">
-                            {f.type} ({f.portion})
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-black text-slate-900">{e.weightBefore}g → {e.weightAfter}g</p>
-                    </div>
+            {/* GRÁFICO */}
+            <div className="h-56 bg-slate-900/50 border border-slate-800 rounded-3xl p-4">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={chartData}>
+                  <defs>
+                    <linearGradient id="colorAyunas" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#1e293b" />
+                  <XAxis dataKey="fecha" axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#475569', fontWeight: 'bold'}} />
+                  <Tooltip contentStyle={{backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px'}} />
+                  <Area type="monotone" dataKey="ayunas" name="Ayunas" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#colorAyunas)" />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+
+            <div className="space-y-3">
+              <h4 className="text-xs font-black text-slate-500 uppercase tracking-widest ml-2">Historial</h4>
+              {selectedHawk.entries.map(e => (
+                <div key={e.id} className="bg-slate-900 border border-slate-800 p-4 rounded-2xl flex items-center justify-between">
+                  <div>
+                    <p className="font-bold text-sm capitalize">{new Date(e.date).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' })}</p>
+                    <p className="text-[10px] text-slate-500 font-bold">{e.foodSelections.length} porciones consumidas</p>
                   </div>
-                ))
-              )}
+                  <div className="text-right">
+                    <p className="font-black text-emerald-500">+{e.totalFoodWeight}g cebado</p>
+                    <p className="text-xs font-bold text-slate-400">{e.weightBefore}g ayunas</p>
+                  </div>
+                </div>
+              ))}
             </div>
           </main>
+
           <div className="fixed bottom-6 left-1/2 -translate-x-1/2 w-full max-w-xs px-4">
-            <button onClick={() => setView('ADD_ENTRY')} className="w-full py-5 bg-slate-900 text-white font-black rounded-2xl shadow-2xl flex items-center justify-center gap-3 active:scale-95 transition-all">
-              <TrendingUp className="w-5 h-5" /> ANOTAR PESO HOY
+            <button onClick={() => setView('ADD_ENTRY')} className="w-full py-5 bg-white text-black font-black rounded-3xl shadow-2xl flex items-center justify-center gap-3 active:scale-95 transition-all">
+              <TrendingUp className="w-5 h-5" /> ANOTAR PESO Y COMIDA
             </button>
           </div>
         </>
@@ -333,66 +387,65 @@ const App: React.FC = () => {
       {/* ADD ENTRY VIEW */}
       {view === 'ADD_ENTRY' && selectedHawk && (
         <>
-          <header className="p-6 border-b flex items-center gap-4">
-            <button onClick={() => setView('HAWK_DETAIL')} className="p-2 bg-slate-50 rounded-xl"><ChevronLeft className="w-6 h-6" /></button>
-            <h2 className="text-xl font-black">Registro de {selectedHawk.name}</h2>
+          <header className="p-6 border-b border-slate-900 flex items-center gap-4">
+            <button onClick={() => setView('HAWK_DETAILS')} className="p-2 bg-slate-900 rounded-xl"><ChevronLeft /></button>
+            <h2 className="text-xl font-black">Control Diario</h2>
           </header>
-          <main className="p-6 space-y-6 overflow-y-auto no-scrollbar">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-400 uppercase ml-2">Peso Ayunas</label>
-                <div className="relative">
-                  <input type="number" placeholder="Antes" value={wBefore} onChange={e => setWBefore(e.target.value)} className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-black text-center text-2xl" />
-                  <span className="absolute right-4 top-1/2 -translate-y-1/2 font-bold text-slate-300">g</span>
-                </div>
-              </div>
-              <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-400 uppercase ml-2">Peso Tras Cebar</label>
-                <div className="relative">
-                  <input type="number" placeholder="Después" value={wAfter} onChange={e => setWAfter(e.target.value)} className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-black text-center text-2xl" />
-                  <span className="absolute right-4 top-1/2 -translate-y-1/2 font-bold text-slate-300">g</span>
-                </div>
+          <main className="flex-1 overflow-y-auto p-6 space-y-8 no-scrollbar pb-32">
+            <div className="space-y-4">
+              <label className="text-xs font-black text-slate-500 uppercase ml-2">Peso en Ayunas</label>
+              <div className="relative">
+                <input value={weightBefore} onChange={e => setWeightBefore(e.target.value)} type="number" placeholder="Peso antes de comer" className="w-full p-6 bg-slate-900 border border-emerald-500/30 rounded-3xl font-black text-center text-4xl" />
+                <span className="absolute right-8 top-1/2 -translate-y-1/2 text-emerald-500 font-black">G</span>
               </div>
             </div>
 
-            <div className="space-y-3 bg-slate-50 p-6 rounded-3xl border-2 border-dashed border-slate-200">
-              <h4 className="text-xs font-black text-slate-400 uppercase flex items-center gap-2 mb-2">
-                <Utensils className="w-3 h-3" /> Composición Comida
+            <div className="space-y-4">
+              <h4 className="text-xs font-black text-slate-500 uppercase ml-2 flex justify-between">
+                <span>Calculadora de Comida</span>
+                <span className="text-emerald-500">+{tempSelections.reduce((a,c)=>a+((FOOD_WEIGHT_MAP[c.category][c.portion]||0)*c.quantity),0)}g</span>
               </h4>
               
-              <div className="flex flex-wrap gap-2">
-                {Object.values(FoodType).map(type => (
-                  <button key={type} onClick={() => {
-                    const existing = currentFood.find(f => f.type === type);
-                    if (existing) {
-                      setCurrentFood(currentFood.filter(f => f.type !== type));
-                    } else {
-                      setCurrentFood([...currentFood, { id: Math.random().toString(), type, portion: FoodPortion.ENTERO, quantity: 1 }]);
-                    }
-                  }} className={`px-4 py-2 rounded-xl text-xs font-bold border-2 transition-all ${currentFood.find(f => f.type === type) ? 'bg-slate-900 border-slate-900 text-white' : 'bg-white border-slate-200 text-slate-400'}`}>
-                    {type}
-                  </button>
+              <div className="space-y-4">
+                {/* Categorías Pollito */}
+                <div className="space-y-2">
+                  <p className="text-[10px] font-black text-slate-600 uppercase mb-2">Pollitos</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button onClick={() => addFoodToTemp('Pollito', 'Con Vitelo')} className="p-4 bg-slate-900 border border-slate-800 rounded-2xl text-xs font-bold active:bg-emerald-500 transition-all">Con Vitelo (25g)</button>
+                    <button onClick={() => addFoodToTemp('Pollito', 'Sin Vitelo')} className="p-4 bg-slate-900 border border-slate-800 rounded-2xl text-xs font-bold active:bg-emerald-500 transition-all">Sin Vitelo (20g)</button>
+                  </div>
+                </div>
+
+                {/* Paloma y Otros */}
+                {['Paloma', 'Codorniz', 'Pato', 'Perdiz'].map((cat: any) => (
+                  <div key={cat} className="space-y-2">
+                    <p className="text-[10px] font-black text-slate-600 uppercase mb-2">{cat}</p>
+                    <div className="grid grid-cols-3 gap-2">
+                      <button onClick={() => addFoodToTemp(cat, 'Pecho')} className="p-3 bg-slate-900 border border-slate-800 rounded-2xl text-[10px] font-black active:bg-emerald-500 transition-all">PECHO</button>
+                      <button onClick={() => addFoodToTemp(cat, 'Pata')} className="p-3 bg-slate-900 border border-slate-800 rounded-2xl text-[10px] font-black active:bg-emerald-500 transition-all">PATA</button>
+                      <button onClick={() => addFoodToTemp(cat, 'Entera')} className="p-3 bg-slate-900 border border-slate-800 rounded-2xl text-[10px] font-black active:bg-emerald-500 transition-all">ENTERA</button>
+                    </div>
+                  </div>
                 ))}
               </div>
 
-              {currentFood.length > 0 && (
-                <div className="mt-4 space-y-2">
-                  {currentFood.map(item => (
-                    <div key={item.id} className="flex items-center gap-2 bg-white p-3 rounded-xl border border-slate-100">
-                      <span className="text-xs font-black text-slate-900 flex-1">{item.type}</span>
-                      <select value={item.portion} onChange={e => {
-                        setCurrentFood(currentFood.map(f => f.id === item.id ? { ...f, portion: e.target.value as FoodPortion } : f));
-                      }} className="bg-slate-50 text-[10px] font-bold p-1 rounded-lg border-none outline-none">
-                        {Object.values(FoodPortion).map(v => <option key={v} value={v}>{v}</option>)}
-                      </select>
-                      <button onClick={() => setCurrentFood(currentFood.filter(f => f.id !== item.id))} className="text-red-400 p-1"><Plus className="w-4 h-4 rotate-45" /></button>
+              {/* Lista de Selección */}
+              {tempSelections.length > 0 && (
+                <div className="mt-6 space-y-2 bg-emerald-500/5 p-4 rounded-3xl border border-emerald-500/10">
+                  {tempSelections.map(s => (
+                    <div key={s.id} className="flex justify-between items-center bg-slate-900/50 p-3 rounded-xl">
+                      <div className="flex items-center gap-3">
+                        <span className="w-6 h-6 bg-emerald-500 text-white rounded-full flex items-center justify-center text-[10px] font-black">{s.quantity}</span>
+                        <span className="text-xs font-bold">{s.category} ({s.portion})</span>
+                      </div>
+                      <button onClick={() => setTempSelections(tempSelections.filter(x => x.id !== s.id))} className="text-slate-600"><X size={16}/></button>
                     </div>
                   ))}
                 </div>
               )}
             </div>
-
-            <button onClick={addEntry} className="w-full py-5 bg-slate-900 text-white font-black rounded-2xl shadow-xl mt-4 active:scale-95 transition-all">Guardar Registro</button>
+            
+            <button onClick={saveEntry} className="w-full py-5 bg-emerald-500 text-white font-black rounded-3xl shadow-xl active:scale-95 transition-all">GUARDAR REGISTRO DIARIO</button>
           </main>
         </>
       )}

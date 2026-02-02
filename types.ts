@@ -1,24 +1,17 @@
-export enum FoodType {
-  PALOMA = 'Paloma',
-  CODORNIZ = 'Codorniz',
-  POLLITO = 'Pollito',
-  PATO = 'Pato',
-  CONEJO = 'Conejo',
-  RATA = 'Rata'
-}
+export type FoodCategory = 'Paloma' | 'Codorniz' | 'Pollito' | 'Pato' | 'Perdiz';
+export type FoodPortion = 'Entera' | 'Pecho' | 'Pata' | 'Con Vitelo' | 'Sin Vitelo';
 
-export enum FoodPortion {
-  ALA = 'Ala',
-  PATA = 'Pata',
-  PECHUGA = 'Pechuga',
-  CABEZA = 'Cabeza',
-  ENTERO = 'Entero',
-  MEDIO = 'Medio'
-}
+export const FOOD_WEIGHT_MAP: Record<FoodCategory, Partial<Record<FoodPortion, number>>> = {
+  'Pollito': { 'Con Vitelo': 25, 'Sin Vitelo': 20 },
+  'Paloma': { 'Pecho': 45, 'Pata': 20, 'Entera': 100 },
+  'Perdiz': { 'Pecho': 60, 'Pata': 35, 'Entera': 150 },
+  'Pato': { 'Pecho': 100, 'Pata': 50, 'Entera': 300 },
+  'Codorniz': { 'Pecho': 40, 'Pata': 15, 'Entera': 80 }
+};
 
-export interface FoodItem {
+export interface FoodSelection {
   id: string;
-  type: FoodType;
+  category: FoodCategory;
   portion: FoodPortion;
   quantity: number;
 }
@@ -27,9 +20,9 @@ export interface DailyEntry {
   id: string;
   date: string;
   weightBefore: number;
-  weightAfter: number;
-  foodItems: FoodItem[];
-  notes?: string;
+  totalFoodWeight: number;
+  foodSelections: FoodSelection[];
+  predictedWeight?: number;
 }
 
 export interface Hawk {
@@ -40,4 +33,4 @@ export interface Hawk {
   entries: DailyEntry[];
 }
 
-export type ViewState = 'AUTH' | 'HOME' | 'HAWK_DETAIL' | 'ADD_HAWK' | 'ADD_ENTRY';
+export type AppView = 'AUTH' | 'DASHBOARD' | 'HAWK_DETAILS' | 'ADD_HAWK' | 'ADD_ENTRY';
