@@ -17,28 +17,36 @@
             margin: 0;
             padding: 0;
             height: 100vh;
+            display: flex;
+            flex-direction: column;
             overscroll-behavior-y: contain;
         }
         #root {
-            height: 100vh;
+            flex: 1;
             display: flex;
             flex-direction: column;
         }
-        header {
-            padding-top: calc(0.5rem + var(--sat));
+        .loading-screen {
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: #f8fafc;
+            color: #0f172a;
         }
-        .safe-bottom {
-            padding-bottom: calc(1rem + var(--sab));
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #e2e8f0;
+            border-top: 4px solid #0f172a;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 1rem;
         }
-        .no-scrollbar::-webkit-scrollbar {
-            display: none;
-        }
-        .no-scrollbar {
-            -ms-overflow-style: none;
-            scrollbar-width: none;
-        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
-<script type="importmap">
+    <script type="importmap">
 {
   "imports": {
     "react": "https://esm.sh/react@18.3.1",
@@ -55,7 +63,26 @@
 </script>
 </head>
 <body>
-    <div id="root"></div>
+    <div id="root">
+        <div class="loading-screen">
+            <div class="spinner"></div>
+            <p style="font-weight: 700; font-size: 14px; opacity: 0.5;">CARGANDO FALCONWEIGHT...</p>
+        </div>
+    </div>
+    <script>
+        // Capturador de errores crítico para evitar pantalla en blanco sin feedback
+        window.onerror = function(msg, url, line) {
+            document.getElementById('root').innerHTML = `
+                <div style="padding: 40px; text-align: center; font-family: sans-serif;">
+                    <h2 style="color: #ef4444;">Error de carga</h2>
+                    <p style="color: #64748b;">No se pudo iniciar la aplicación.</p>
+                    <code style="display: block; background: #f1f5f9; padding: 10px; border-radius: 8px; font-size: 12px; margin-top: 20px;">${msg}</code>
+                    <button onclick="location.reload()" style="margin-top: 20px; padding: 12px 24px; background: #0f172a; color: white; border: none; border-radius: 12px; font-weight: bold;">Reintentar</button>
+                </div>
+            `;
+            return false;
+        };
+    </script>
     <script type="module" src="index.tsx"></script>
 </body>
 </html>
