@@ -47,17 +47,18 @@
             opacity: 0.4;
             margin-top: 16px;
         }
-        .error-log-box {
-            margin-top: 24px;
-            padding: 16px;
-            background: rgba(239, 68, 68, 0.1);
-            border: 1px solid rgba(239, 68, 68, 0.2);
-            border-radius: 16px;
+        .error-display {
+            margin-top: 20px;
+            padding: 15px;
+            background: rgba(239, 68, 68, 0.15);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            border-radius: 12px;
             color: #f87171;
-            font-size: 11px;
-            max-width: 85%;
+            font-size: 10px;
+            max-width: 80%;
             display: none;
-            text-align: center;
+            word-break: break-all;
+            font-family: monospace;
         }
     </style>
     <script type="importmap">
@@ -83,30 +84,20 @@
                 <svg width="50" height="50" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 7h.01"></path><path d="M3.4 18c.1 1 .6 1.1 1.3 1.1h14.6c.7 0 1.2-.1 1.3-1.1l.4-4.5c.1-1.1-.7-2.1-1.8-2.3L15 10.5V7a3 3 0 1 0-6 0v3.5l-4.2.7c-1.1.2-1.9 1.2-1.8 2.3l.4 4.5Z"></path></svg>
             </div>
             <h1 class="text-3xl font-black tracking-tight">FalconWeight Pro</h1>
-            <p id="progress-msg" class="status-text">Iniciando sistemas...</p>
-            <div id="error-log" class="error-log-box"></div>
-            <button id="retry-btn" onclick="window.location.reload()" class="mt-8 px-6 py-3 bg-white/10 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-white/20 transition-all" style="display: none;">Reintentar carga</button>
+            <p id="progress-msg" class="status-text">Cargando módulos...</p>
+            <div id="error-box" class="error-display"></div>
         </div>
     </div>
     <script>
-        // Failsafe: Si después de 5 segundos sigue cargando, mostrar botón de reintento
-        setTimeout(() => {
-            const btn = document.getElementById('retry-btn');
-            if (btn && document.getElementById('progress-msg').innerText.includes('Iniciando')) {
-                btn.style.display = 'block';
+        window.addEventListener('error', function(e) {
+            const errorBox = document.getElementById('error-box');
+            const statusMsg = document.getElementById('progress-msg');
+            if (statusMsg) statusMsg.innerText = "Error en la carga";
+            if (errorBox) {
+                errorBox.style.display = 'block';
+                errorBox.innerText = e.message + (e.filename ? ' en ' + e.filename : '');
             }
-        }, 5000);
-
-        window.onerror = function(message, source, lineno, colno, error) {
-            const msg = document.getElementById('progress-msg');
-            const errLog = document.getElementById('error-log');
-            if (msg) msg.innerText = "Error de Módulos";
-            if (errLog) {
-                errLog.style.display = 'block';
-                errLog.innerText = message + " (Ver consola para detalles)";
-            }
-            console.error("Error crítico detectado:", message, error);
-        };
+        });
     </script>
     <script type="module" src="index.tsx"></script>
 </body>
