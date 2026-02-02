@@ -2,23 +2,24 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App.tsx';
 
-console.log("Iniciando index.tsx...");
+// Feedback visual inmediato de que el JS ha tomado el control
+const progressMsg = document.getElementById('progress-msg');
+if (progressMsg) progressMsg.innerText = "Iniciando React 18...";
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
-  console.error("No se encontró el elemento #root");
-  throw new Error("Could not find root element to mount to");
+  throw new Error("Target container 'root' not found");
 }
 
+const root = ReactDOM.createRoot(rootElement);
+
 try {
-  console.log("Creando root de React...");
-  const root = ReactDOM.createRoot(rootElement);
   root.render(
     <React.StrictMode>
       <App />
     </React.StrictMode>
   );
-  console.log("Renderizado de React enviado.");
-} catch (error) {
-  console.error("Error durante el renderizado inicial:", error);
+  console.log("FalconWeight: Render inicial completado");
+} catch (e) {
+  console.error("FalconWeight: Fallo en el render", e);
 }

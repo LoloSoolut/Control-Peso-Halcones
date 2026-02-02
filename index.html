@@ -5,65 +5,62 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>FalconWeight Pro</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
     <style>
-        :root {
-            --sat: env(safe-area-inset-top);
-            --sab: env(safe-area-inset-bottom);
-        }
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #0f172a; /* Fondo oscuro inicial para confirmar carga */
+            background-color: #0f172a;
             margin: 0;
             padding: 0;
             height: 100vh;
             display: flex;
             flex-direction: column;
             overflow: hidden;
+            color: white;
         }
-        #root {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-        }
-        .loading-screen {
+        #root { flex: 1; display: flex; flex-direction: column; }
+        .loader-container {
             height: 100vh;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            background: #0f172a;
-            color: white;
-            text-align: center;
+            background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%);
         }
-        .logo-placeholder {
-            width: 80px;
-            height: 80px;
+        .logo-box {
+            width: 90px;
+            height: 90px;
             background: white;
-            border-radius: 24px;
+            border-radius: 28px;
             display: flex;
             align-items: center;
             justify-content: center;
-            margin-bottom: 24px;
             color: #0f172a;
-            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3);
-            animation: pulse 2s infinite;
+            box-shadow: 0 0 40px rgba(0,0,0,0.5);
+            margin-bottom: 24px;
+            animation: bounce 2s infinite ease-in-out;
         }
-        @keyframes pulse {
-            0% { transform: scale(1); opacity: 1; }
-            50% { transform: scale(1.05); opacity: 0.8; }
-            100% { transform: scale(1); opacity: 1; }
-        }
-        .spinner {
-            width: 24px;
-            height: 24px;
-            border: 3px solid rgba(255,255,255,0.1);
-            border-top: 3px solid white;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
+        @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+        .status-text {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            font-weight: 700;
+            opacity: 0.4;
             margin-top: 16px;
         }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .error-overlay {
+            position: fixed;
+            inset: 0;
+            background: #7f1d1d;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            text-align: center;
+            z-index: 9999;
+        }
     </style>
     <script type="importmap">
 {
@@ -83,30 +80,36 @@
 </head>
 <body>
     <div id="root">
-        <div class="loading-screen">
-            <div class="logo-placeholder">
-                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 7h.01"></path><path d="M3.4 18c.1 1 .6 1.1 1.3 1.1h14.6c.7 0 1.2-.1 1.3-1.1l.4-4.5c.1-1.1-.7-2.1-1.8-2.3L15 10.5V7a3 3 0 1 0-6 0v3.5l-4.2.7c-1.1.2-1.9 1.2-1.8 2.3l.4 4.5Z"></path></svg>
+        <div class="loader-container">
+            <div class="logo-box">
+                <svg width="50" height="50" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 7h.01"></path><path d="M3.4 18c.1 1 .6 1.1 1.3 1.1h14.6c.7 0 1.2-.1 1.3-1.1l.4-4.5c.1-1.1-.7-2.1-1.8-2.3L15 10.5V7a3 3 0 1 0-6 0v3.5l-4.2.7c-1.1.2-1.9 1.2-1.8 2.3l.4 4.5Z"></path></svg>
             </div>
-            <h1 style="font-weight: 900; font-size: 24px; margin: 0; letter-spacing: -0.02em;">FalconWeight Pro</h1>
-            <p style="font-size: 14px; opacity: 0.5; margin-top: 8px;">Iniciando motor de cetrería...</p>
-            <div class="spinner"></div>
+            <h1 class="text-3xl font-black tracking-tight">FalconWeight Pro</h1>
+            <p id="progress-msg" class="status-text">Cargando módulos de vuelo...</p>
+            <div class="mt-8 flex gap-2">
+                <div class="w-2 h-2 rounded-full bg-white opacity-20 animate-pulse"></div>
+                <div class="w-2 h-2 rounded-full bg-white opacity-20 animate-pulse" style="animation-delay: 0.2s"></div>
+                <div class="w-2 h-2 rounded-full bg-white opacity-20 animate-pulse" style="animation-delay: 0.4s"></div>
+            </div>
         </div>
     </div>
     <script>
-        console.log("HTML cargado. Esperando módulos...");
-        window.onerror = function(msg, url, line, col, error) {
-            console.error("Error crítico:", msg);
-            const root = document.getElementById('root');
-            if (root) {
-                root.innerHTML = `
-                    <div style="padding: 40px; text-align: center; color: white; background: #0f172a; height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center;">
-                        <h2 style="color: #ef4444;">Error de sistema</h2>
-                        <p style="opacity: 0.7;">No se pudo cargar la lógica de la aplicación.</p>
-                        <pre style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 12px; font-size: 10px; margin-top: 20px; color: #94a3b8; max-width: 90%; white-space: pre-wrap;">${msg}</pre>
-                        <button onclick="location.reload()" style="margin-top: 30px; padding: 15px 30px; background: white; color: #0f172a; border: none; border-radius: 12px; font-weight: bold; cursor: pointer;">Reintentar</button>
+        const msg = document.getElementById('progress-msg');
+        window.addEventListener('load', () => {
+            if(msg) msg.innerText = "Sincronizando interfaz...";
+        });
+        
+        window.onerror = function(message, source, lineno, colno, error) {
+            document.body.innerHTML = `
+                <div class="error-overlay">
+                    <div class="bg-white/10 p-6 rounded-3xl border border-white/20">
+                        <h2 class="text-2xl font-black mb-2">Error de Despegue</h2>
+                        <p class="opacity-70 mb-6">La aplicación no pudo iniciarse.</p>
+                        <code class="block bg-black/40 p-4 rounded-xl text-xs text-left overflow-auto max-w-xs mb-6">${message}</code>
+                        <button onclick="location.reload()" class="bg-white text-red-900 px-8 py-4 rounded-2xl font-black">REINTENTAR</button>
                     </div>
-                `;
-            }
+                </div>
+            `;
             return false;
         };
     </script>
