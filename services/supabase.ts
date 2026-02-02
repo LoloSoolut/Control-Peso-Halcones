@@ -3,8 +3,8 @@ import { createClient } from '@supabase/supabase-js';
 
 // --- CONFIGURACIÓN DE SUPABASE ---
 // Debes reemplazar estos valores con los de tu proyecto en https://supabase.com
-const supabaseUrl = 'https://tu-proyecto.supabase.co';
-const supabaseKey = 'tu-anon-key';
+const supabaseUrl = 'https://esyzhzplfyoodjzmxvfd.supabase.co';
+const supabaseKey = 'sb_publishable_p_uQaFT7nnBFVUspTf8dUA_54-ig3Rb';
 
 // Verificamos si las claves son las de ejemplo para evitar el error "Failed to fetch"
 const isPlaceholder = supabaseUrl.includes('tu-proyecto') || supabaseKey === 'tu-anon-key';
