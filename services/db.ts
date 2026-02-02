@@ -1,6 +1,5 @@
-
-import { Hawk, DailyEntry, FoodEntry } from '../types';
-import { supabase } from './supabase';
+import { Hawk } from '../types.ts';
+import { supabase } from './supabase.ts';
 
 export const getHawks = async (userId: string): Promise<Hawk[]> => {
   try {
@@ -85,12 +84,7 @@ export const saveEntry = async (hawkId: string, weightBefore: number, weightAfte
         portion: item.portion,
         quantity: item.quantity
       }));
-
-      const { error: foodError } = await supabase
-        .from('food_items')
-        .insert(itemsToInsert);
-
-      if (foodError) throw foodError;
+      await supabase.from('food_items').insert(itemsToInsert);
     }
 
     return true;
