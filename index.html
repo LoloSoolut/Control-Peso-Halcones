@@ -122,13 +122,13 @@
           }
         });
 
-        // Fail-safe de 12 segundos para móviles lentos
+        // Fail-safe de 15 segundos para móviles
         setTimeout(() => {
             const loader = document.getElementById('loader');
             if (loader && !loader.classList.contains('hidden')) {
-                showError("Tiempo agotado. Reintenta recargar.");
+                showError("Tiempo agotado. El mapa de módulos no responde.");
             }
-        }, 12000);
+        }, 15000);
     </script>
     <script type="module" src="index.tsx"></script>
 </body>
