@@ -27,8 +27,8 @@
             align-items: center;
             justify-content: center;
             background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%);
-            z-index: 50;
-            transition: opacity 0.5s ease-in-out;
+            z-index: 100;
+            transition: opacity 0.4s ease-in-out;
         }
         .loader-container.hidden {
             opacity: 0;
@@ -45,11 +45,11 @@
             color: #0f172a;
             margin-bottom: 20px;
             box-shadow: 0 20px 40px rgba(0,0,0,0.4);
-            animation: pulse 2s infinite ease-in-out;
+            animation: bounce 2s infinite;
         }
-        @keyframes pulse {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.05); }
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
         }
         .status-text {
             font-size: 11px;
@@ -60,38 +60,19 @@
             margin-top: 12px;
             text-align: center;
         }
-        #error-ui {
-            margin-top: 24px;
-            display: none;
-            flex-direction: column;
-            align-items: center;
-            gap: 12px;
-        }
-        .retry-btn {
-            background: white;
-            color: #0f172a;
-            padding: 10px 20px;
-            border-radius: 12px;
-            font-weight: 800;
-            font-size: 12px;
-            text-transform: uppercase;
-        }
-        #error-log {
+        #critical-error {
             position: fixed;
-            bottom: 10px;
-            left: 10px;
-            right: 10px;
-            background: rgba(0,0,0,0.8);
-            color: #f87171;
-            font-family: monospace;
-            font-size: 9px;
-            padding: 10px;
-            border-radius: 8px;
+            bottom: 20px;
+            left: 20px;
+            right: 20px;
+            background: #ef4444;
+            color: white;
+            padding: 15px;
+            border-radius: 12px;
+            font-size: 12px;
             display: none;
-            z-index: 100;
-            max-height: 20vh;
-            overflow-y: auto;
-            border: 1px solid rgba(248,113,113,0.2);
+            z-index: 200;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
         }
     </style>
     <script type="importmap">
@@ -116,38 +97,27 @@
             <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 7h.01"></path><path d="M3.4 18c.1 1 .6 1.1 1.3 1.1h14.6c.7 0 1.2-.1 1.3-1.1l.4-4.5c.1-1.1-.7-2.1-1.8-2.3L15 10.5V7a3 3 0 1 0-6 0v3.5l-4.2.7c-1.1.2-1.9 1.2-1.8 2.3l.4 4.5Z"></path></svg>
         </div>
         <h1 class="text-2xl font-black tracking-tight">FalconWeight</h1>
-        <p id="loading-status" class="status-text">Cargando Sistema...</p>
-        
-        <div id="error-ui">
-            <p class="text-xs text-red-400 font-bold">La carga está tardando demasiado</p>
-            <button onclick="window.location.reload()" class="retry-btn">Reintentar Carga</button>
-        </div>
+        <p id="loading-status" class="status-text">Cargando...</p>
     </div>
 
     <div id="root"></div>
-    <div id="error-log"></div>
+    <div id="critical-error"></div>
 
     <script>
-        // Timeout de seguridad: Si en 5 segundos no ha cargado, mostrar ayuda
-        setTimeout(() => {
-            const loader = document.getElementById('loader');
-            if (loader && !loader.classList.contains('hidden')) {
-                const ui = document.getElementById('error-ui');
-                if (ui) ui.style.display = 'flex';
-            }
-        }, 5000);
+        const statusEl = document.getElementById('loading-status');
+        const errorEl = document.getElementById('critical-error');
 
-        window.onerror = function(msg, url, line) {
-            const log = document.getElementById('error-log');
-            if (log) {
-                log.style.display = 'block';
-                log.innerHTML += '<div>[' + new Date().toLocaleTimeString() + '] ' + msg + '</div>';
-            }
-        };
+        function showError(msg) {
+            errorEl.style.display = 'block';
+            errorEl.innerText = "ERROR DE CARGA: " + msg;
+            statusEl.innerText = "Error detectado";
+        }
+
+        window.onerror = (msg) => showError(msg);
+        window.onunhandledrejection = (e) => showError(e.reason);
 
         window.addEventListener('message', (e) => {
           if (e.data.type === 'STATUS_UPDATE') {
-            const statusEl = document.getElementById('loading-status');
             if (statusEl) statusEl.innerText = e.data.text;
           }
           if (e.data.type === 'APP_READY') {
@@ -155,6 +125,14 @@
             if (loader) loader.classList.add('hidden');
           }
         });
+
+        // Fail-safe si nada ocurre en 8 segundos
+        setTimeout(() => {
+            const loader = document.getElementById('loader');
+            if (loader && !loader.classList.contains('hidden')) {
+                showError("Tiempo de espera agotado. Comprueba tu conexión.");
+            }
+        }, 8000);
     </script>
     <script type="module" src="index.tsx"></script>
 </body>

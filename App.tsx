@@ -29,6 +29,14 @@ import {
   Tooltip
 } from 'recharts';
 
+// Fallback para navegadores móviles que no soportan crypto.randomUUID
+const generateId = () => {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return Math.random().toString(36).substring(2, 11) + Date.now().toString(36);
+};
+
 const IS_MOCK = !supabase?.auth?.signInWithOtp; 
 
 class ErrorBoundary extends React.Component<{children: React.ReactNode}, {hasError: boolean}> {
@@ -349,7 +357,7 @@ const AppContent: React.FC = () => {
                     {Object.values(FoodPortion).map(v => <option key={v} value={v}>{v}</option>)}
                   </select>
                 </div>
-                <button onClick={() => setCurrentFoodItems([...currentFoodItems, { id: crypto.randomUUID(), type: selectedFoodType, portion: selectedFoodPortion, quantity: 1 }])} className="w-full py-2 bg-white border rounded-xl text-xs font-bold">
+                <button onClick={() => setCurrentFoodItems([...currentFoodItems, { id: generateId(), type: selectedFoodType, portion: selectedFoodPortion, quantity: 1 }])} className="w-full py-2 bg-white border rounded-xl text-xs font-bold">
                   + Añadir porción
                 </button>
             </div>
