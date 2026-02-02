@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Bird, 
   Plus, 
@@ -15,7 +15,7 @@ import {
   RefreshCcw,
   Scale
 } from 'lucide-react';
-import { Hawk, ViewState, FoodType, FoodPortion } from './types';
+import { Hawk, ViewState, FoodType, FoodPortion, DailyEntry } from './types';
 import { getHawks, createHawk, deleteHawk, saveEntry } from './services/db';
 import { supabase } from './services/supabase';
 import { 
@@ -178,6 +178,18 @@ const AppContent: React.FC = () => {
     return () => subscription.unsubscribe();
   }, []);
 
+  // Preparar datos para el gráfico de forma segura
+  const chartData = useMemo(() => {
+    if (!selectedHawk || !selectedHawk.entries) return [];
+    return [...selectedHawk.entries]
+      .reverse()
+      .slice(-7)
+      .map(e => ({ 
+        name: new Date(e.date).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }), 
+        peso: Number(e.weightBefore) 
+      }));
+  }, [selectedHawk]);
+
   if (loading && view !== 'AUTH') {
     return (
       <div className="flex flex-col h-full items-center justify-center bg-slate-50">
@@ -298,7 +310,7 @@ const AppContent: React.FC = () => {
               </div>
               <div className="h-44 w-full">
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={[...selectedHawk.entries].reverse().slice(-7).map(e => ({ name: '', peso: e.weightBefore }))}>
+                  <AreaChart data={chartData}>
                     <defs>
                       <linearGradient id="colorPeso" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor="#0f172a" stopOpacity={0.1}/>
@@ -326,7 +338,7 @@ const AppContent: React.FC = () => {
                           <p className="text-sm font-black text-slate-900">{new Date(entry.date).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'short' })}</p>
                         </div>
                         <div className="flex items-center gap-1 bg-emerald-50 text-emerald-700 px-3 py-1 rounded-full text-xs font-black">
-                          +{Math.round(entry.weightAfter - entry.weightBefore)}g
+                          +{Math.round(Number(entry.weightAfter) - Number(entry.weightBefore))}g
                         </div>
                       </div>
                       <div className="flex gap-2 flex-wrap">
