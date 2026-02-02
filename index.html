@@ -16,15 +16,23 @@
             color: white;
             display: flex;
             flex-direction: column;
+            overflow: hidden;
         }
         #root { flex: 1; display: flex; flex-direction: column; }
         .loader-container {
-            height: 100vh;
+            position: fixed;
+            inset: 0;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
             background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%);
+            z-index: 50;
+            transition: opacity 0.4s ease-out, visibility 0.4s;
+        }
+        .loader-container.hidden {
+            opacity: 0;
+            visibility: hidden;
         }
         .logo-box {
             width: 80px;
@@ -46,20 +54,21 @@
             color: #94a3b8;
             margin-top: 12px;
         }
-        #debug-console {
+        #error-log {
             position: fixed;
             bottom: 20px;
             left: 20px;
             right: 20px;
-            background: rgba(0,0,0,0.8);
-            color: #f87171;
+            background: rgba(220, 38, 38, 0.95);
+            color: white;
             font-family: monospace;
             font-size: 10px;
-            padding: 10px;
-            border-radius: 8px;
+            padding: 12px;
+            border-radius: 12px;
             display: none;
             z-index: 9999;
-            border: 1px solid rgba(248, 113, 113, 0.3);
+            max-height: 30vh;
+            overflow-y: auto;
         }
     </style>
     <script type="importmap">
@@ -79,32 +88,47 @@
 </script>
 </head>
 <body>
-    <div id="root">
-        <div class="loader-container">
-            <div class="logo-box">
-                <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 7h.01"></path><path d="M3.4 18c.1 1 .6 1.1 1.3 1.1h14.6c.7 0 1.2-.1 1.3-1.1l.4-4.5c.1-1.1-.7-2.1-1.8-2.3L15 10.5V7a3 3 0 1 0-6 0v3.5l-4.2.7c-1.1.2-1.9 1.2-1.8 2.3l.4 4.5Z"></path></svg>
-            </div>
-            <h1 class="text-2xl font-black tracking-tight">FalconWeight</h1>
-            <p id="loading-status" class="status-text">Cargando aplicación...</p>
+    <!-- Splash screen fuera de #root para que React no lo elimine al montar -->
+    <div id="loader" class="loader-container">
+        <div class="logo-box">
+            <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 7h.01"></path><path d="M3.4 18c.1 1 .6 1.1 1.3 1.1h14.6c.7 0 1.2-.1 1.3-1.1l.4-4.5c.1-1.1-.7-2.1-1.8-2.3L15 10.5V7a3 3 0 1 0-6 0v3.5l-4.2.7c-1.1.2-1.9 1.2-1.8 2.3l.4 4.5Z"></path></svg>
         </div>
+        <h1 class="text-2xl font-black tracking-tight">FalconWeight</h1>
+        <p id="loading-status" class="status-text">Iniciando aplicación...</p>
     </div>
-    <div id="debug-console"></div>
+
+    <div id="root"></div>
+    <div id="error-log"></div>
+
     <script>
+        // Captura de errores con seguridad de nulos
         window.onerror = function(msg, url, line) {
-            const dbg = document.getElementById('debug-console');
-            dbg.style.display = 'block';
-            dbg.innerHTML += '<div>ERR: ' + msg + ' (L' + line + ')</div>';
-            document.getElementById('loading-status').innerText = "Error en el sistema";
-        };
-        console.log = (function(old) {
-            return function(msg) {
-                if (typeof msg === 'string' && msg.includes('Falcon')) {
-                    const status = document.getElementById('loading-status');
-                    if (status) status.innerText = msg;
-                }
-                old.apply(console, arguments);
+            const log = document.getElementById('error-log');
+            if (log) {
+                log.style.display = 'block';
+                log.innerHTML += '<div>ERR: ' + msg + ' (L:' + line + ')</div>';
             }
-        })(console.log);
+            const status = document.getElementById('loading-status');
+            if (status) {
+                status.innerText = "Error en el arranque";
+            }
+        };
+
+        // Escucha de mensajes del sistema React
+        window.addEventListener('message', (e) => {
+          if (e.data.type === 'STATUS_UPDATE') {
+            const statusEl = document.getElementById('loading-status');
+            if (statusEl) {
+                statusEl.innerText = e.data.text;
+            }
+          }
+          if (e.data.type === 'APP_READY') {
+            const loader = document.getElementById('loader');
+            if (loader) {
+                loader.classList.add('hidden');
+            }
+          }
+        });
     </script>
     <script type="module" src="index.tsx"></script>
 </body>
