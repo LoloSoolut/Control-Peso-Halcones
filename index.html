@@ -27,6 +27,7 @@
             justify-content: center;
             background: #ffffff;
             z-index: 9999;
+            transition: opacity 0.5s ease-out;
         }
         .spinner {
             width: 40px;
@@ -58,13 +59,17 @@
 <body>
     <div id="loading-layer" class="loading-screen">
         <div class="spinner"></div>
-        <p class="text-slate-400 font-bold text-sm tracking-widest uppercase">Cargando Sistema...</p>
+        <p class="text-slate-400 font-bold text-sm tracking-widest uppercase">Iniciando Halcón...</p>
     </div>
     <div id="root"></div>
     <script type="module">
-        window.addEventListener('load', () => {
+        // Evento para ocultar el loader una vez que React tome el control
+        window.addEventListener('app-ready', () => {
             const layer = document.getElementById('loading-layer');
-            if (layer) layer.style.display = 'none';
+            if (layer) {
+                layer.style.opacity = '0';
+                setTimeout(() => layer.style.display = 'none', 500);
+            }
         });
     </script>
     <script type="module" src="index.tsx"></script>

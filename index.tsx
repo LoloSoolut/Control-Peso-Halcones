@@ -10,4 +10,6 @@ if (rootElement) {
       <App />
     </React.StrictMode>
   );
+  // Notificamos al sistema que React ha cargado
+  window.dispatchEvent(new CustomEvent('app-ready'));
 }
