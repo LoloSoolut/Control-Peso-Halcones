@@ -12,7 +12,9 @@ import {
   Loader2,
   AlertCircle,
   RefreshCcw,
-  Scale
+  Scale,
+  ShieldCheck,
+  Smartphone
 } from 'lucide-react';
 import { Hawk, ViewState, FoodType, FoodPortion, DailyEntry } from './types';
 import { getHawks, createHawk, deleteHawk, saveEntry } from './services/db';
@@ -26,6 +28,9 @@ import {
   YAxis,
   Tooltip
 } from 'recharts';
+
+// Detectar si estamos en modo local para mostrar feedback visual
+const IS_MOCK = !supabase.auth.signInWithOtp; // Forma sencilla de saber si es nuestro Mock o Supabase real
 
 // --- Error Boundary ---
 class ErrorBoundary extends React.Component<{children: React.ReactNode}, {hasError: boolean}> {
@@ -70,11 +75,10 @@ const AuthScreen: React.FC = () => {
       } else {
         const { data, error } = await supabase.auth.signUp({ email, password });
         if (error) throw error;
-        // En modo real Supabase puede no loguear al instante si requiere confirmación por email
         if (data?.session) {
-           // Si ya tenemos sesión (modo mock), no hacemos nada más, el listener de AppContent se encargará
+           // Registrado y logueado
         } else {
-           alert('Registro completado. Por favor, inicia sesión con tus credenciales.');
+           alert('Registro completado. Por favor, inicia sesión.');
            setIsLogin(true);
         }
       }
@@ -94,6 +98,12 @@ const AuthScreen: React.FC = () => {
           </div>
           <h2 className="text-4xl font-black text-slate-900 tracking-tight">FalconWeight</h2>
           <p className="mt-2 text-slate-500 font-medium">Control profesional de pesos</p>
+          
+          {IS_MOCK && (
+            <div className="mt-4 inline-flex items-center gap-2 bg-amber-50 text-amber-700 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border border-amber-100">
+              <Smartphone className="w-3 h-3" /> Modo Almacenamiento Local
+            </div>
+          )}
         </div>
         
         <form onSubmit={handleAuth} className="mt-8 space-y-4">
@@ -133,7 +143,6 @@ const AppContent: React.FC = () => {
   const [selectedHawk, setSelectedHawk] = useState<Hawk | null>(null);
   const [loading, setLoading] = useState(true);
   
-  // States para formularios
   const [newHawkName, setNewHawkName] = useState('');
   const [newHawkSpecies, setNewHawkSpecies] = useState('');
   const [newHawkTargetWeight, setNewHawkTargetWeight] = useState<string>('');
@@ -183,7 +192,6 @@ const AppContent: React.FC = () => {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Preparar datos para el gráfico de forma segura
   const chartData = useMemo(() => {
     if (!selectedHawk || !selectedHawk.entries) return [];
     return [...selectedHawk.entries]
@@ -199,7 +207,7 @@ const AppContent: React.FC = () => {
     return (
       <div className="flex flex-col h-full items-center justify-center bg-slate-50">
         <Loader2 className="animate-spin w-10 h-10 text-slate-900 mb-4" />
-        <p className="text-slate-400 font-bold animate-pulse">Cargando datos...</p>
+        <p className="text-slate-400 font-bold animate-pulse">Iniciando sistema...</p>
       </div>
     );
   }
@@ -212,7 +220,14 @@ const AppContent: React.FC = () => {
         <>
           <header className="p-6 bg-white border-b flex justify-between items-center sticky top-0 z-20">
             <div>
-              <h1 className="text-2xl font-black text-slate-900">Mis Halcones</h1>
+              <div className="flex items-center gap-2 mb-0.5">
+                <h1 className="text-2xl font-black text-slate-900">Mis Halcones</h1>
+                {IS_MOCK ? (
+                  <Smartphone className="w-4 h-4 text-amber-500" />
+                ) : (
+                  <ShieldCheck className="w-4 h-4 text-emerald-500" />
+                )}
+              </div>
               <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">{hawks.length} activos</p>
             </div>
             <div className="flex gap-3">
@@ -352,7 +367,6 @@ const AppContent: React.FC = () => {
                             {f.type} • {f.portion}
                           </span>
                         ))}
-                        {entry.foodItems.length === 0 && <span className="text-[10px] text-slate-400 font-bold italic">Sin alimento registrado</span>}
                       </div>
                     </div>
                   ))
@@ -411,7 +425,7 @@ const AppContent: React.FC = () => {
                 
                 <div className="space-y-2 max-h-40 overflow-y-auto no-scrollbar">
                   {currentFoodItems.map(item => (
-                    <div key={item.id} className="flex justify-between items-center p-3.5 bg-white border border-slate-100 rounded-2xl shadow-sm animate-in slide-in-from-top-2 duration-300">
+                    <div key={item.id} className="flex justify-between items-center p-3.5 bg-white border border-slate-100 rounded-2xl shadow-sm">
                       <div className="flex flex-col">
                         <span className="text-xs font-black text-slate-900">{item.type}</span>
                         <span className="text-[10px] font-bold text-slate-400 uppercase">{item.portion}</span>
@@ -421,7 +435,6 @@ const AppContent: React.FC = () => {
                       </button>
                     </div>
                   ))}
-                  {currentFoodItems.length === 0 && <p className="text-[10px] text-center text-slate-400 font-bold uppercase py-4">Sin ítems de comida</p>}
                 </div>
               </div>
             </div>
