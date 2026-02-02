@@ -47,17 +47,16 @@
             opacity: 0.4;
             margin-top: 16px;
         }
-        .error-overlay {
-            position: fixed;
-            inset: 0;
-            background: #7f1d1d;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-            text-align: center;
-            z-index: 9999;
+        .error-message {
+            margin-top: 20px;
+            padding: 15px;
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            border-radius: 12px;
+            color: #f87171;
+            font-size: 11px;
+            max-width: 80%;
+            display: none;
         }
     </style>
     <script type="importmap">
@@ -84,13 +83,19 @@
             </div>
             <h1 class="text-3xl font-black tracking-tight">FalconWeight Pro</h1>
             <p id="progress-msg" class="status-text">Cargando módulos de vuelo...</p>
+            <div id="error-log" class="error-message"></div>
         </div>
     </div>
     <script>
         window.onerror = function(message) {
             const msg = document.getElementById('progress-msg');
-            if (msg) msg.innerText = "Error: " + message;
-            console.error(message);
+            const errLog = document.getElementById('error-log');
+            if (msg) msg.innerText = "Error detectado";
+            if (errLog) {
+                errLog.style.display = 'block';
+                errLog.innerText = message;
+            }
+            console.error("Error en index.html:", message);
         };
     </script>
     <script type="module" src="index.tsx"></script>
