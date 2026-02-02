@@ -63,14 +63,25 @@
     </div>
     <div id="root"></div>
     <script type="module">
-        // Evento para ocultar el loader una vez que React tome el control
+        // Listener para quitar la pantalla de carga
         window.addEventListener('app-ready', () => {
+            console.log('React montado correctamente');
             const layer = document.getElementById('loading-layer');
             if (layer) {
                 layer.style.opacity = '0';
                 setTimeout(() => layer.style.display = 'none', 500);
             }
         });
+
+        // Fail-safe por si hay un error de red
+        setTimeout(() => {
+            const layer = document.getElementById('loading-layer');
+            if (layer && layer.style.display !== 'none') {
+                console.error('La carga de la app ha fallado o es muy lenta.');
+                const p = layer.querySelector('p');
+                if (p) p.innerText = "Error de conexión. Recarga la página.";
+            }
+        }, 15000);
     </script>
     <script type="module" src="index.tsx"></script>
 </body>

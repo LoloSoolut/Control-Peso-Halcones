@@ -1,10 +1,12 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Función segura para obtener variables de entorno en el navegador
 const getEnv = (key: string): string => {
   try {
-    // @ts-ignore
-    return (typeof process !== 'undefined' && process.env?.[key]) || '';
+    // Intento de lectura compatible con múltiples entornos
+    if (typeof process !== 'undefined' && process.env && process.env[key]) {
+      return process.env[key];
+    }
+    return '';
   } catch {
     return '';
   }
@@ -13,15 +15,15 @@ const getEnv = (key: string): string => {
 const supabaseUrl = getEnv('SUPABASE_URL');
 const supabaseKey = getEnv('SUPABASE_ANON_KEY');
 
-// Si no hay credenciales válidas, activamos el modo Mock (simulado) para que la app funcione siempre
-const isMock = !supabaseUrl || supabaseUrl.includes('placeholder') || supabaseUrl === '';
+// Si no hay credenciales, modo local automático
+const isMock = !supabaseUrl || supabaseUrl === '' || supabaseUrl.includes('placeholder');
 
 class MockAuth {
   onAuthStateChange(cb: any) {
     const session = JSON.parse(localStorage.getItem('falcon_session') || 'null');
-    // Pequeño delay para simular red
-    setTimeout(() => cb('INITIAL_SESSION', session), 500);
-    return { data: { subscription: { unsubscribe: () => {} } } };
+    // Pequeño delay para simular carga real y permitir que React se monte
+    const timer = setTimeout(() => cb('INITIAL_SESSION', session), 200);
+    return { data: { subscription: { unsubscribe: () => clearTimeout(timer) } } };
   }
   async getSession() {
     const session = JSON.parse(localStorage.getItem('falcon_session') || 'null');
@@ -60,12 +62,7 @@ class MockDB {
         localStorage.setItem(`mock_${table}`, JSON.stringify([...current, ...data]));
         return Promise.resolve({ data: data[0], error: null });
       },
-      delete: () => ({ 
-        eq: () => {
-          // Lógica simplificada de borrado local
-          return Promise.resolve({ error: null });
-        } 
-      })
+      delete: () => ({ eq: () => Promise.resolve({ error: null }) })
     };
   }
 }
