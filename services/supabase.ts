@@ -1,20 +1,23 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Si vas a usar Supabase, rellena estos campos con tus datos reales.
-// Si los dejas como están, la app funcionará en modo "Almacenamiento Local".
+// URL y Key de ejemplo. Si son estas, se activará el Modo Local automáticamente.
 const supabaseUrl = 'https://placeholder-project.supabase.co'; 
 const supabaseKey = 'placeholder-key'; 
 
 const isValidConfig = () => {
-  const isUrlValid = supabaseUrl && 
-                     supabaseUrl.startsWith('https://') && 
-                     !supabaseUrl.includes('placeholder-project');
-  
-  const isKeyValid = supabaseKey && 
-                     supabaseKey.length > 30 && 
-                     supabaseKey !== 'placeholder-key';
+  try {
+    const isUrlValid = supabaseUrl && 
+                       supabaseUrl.startsWith('https://') && 
+                       !supabaseUrl.includes('placeholder-project');
+    
+    const isKeyValid = supabaseKey && 
+                       supabaseKey.length > 30 && 
+                       supabaseKey !== 'placeholder-key';
 
-  return isUrlValid && isKeyValid;
+    return isUrlValid && isKeyValid;
+  } catch {
+    return false;
+  }
 };
 
 class MockSupabase {
@@ -101,14 +104,13 @@ let supabaseClient;
 
 try {
   if (isValidConfig()) {
-    console.log("FalconWeight: Intentando conectar a Supabase...");
     supabaseClient = createClient(supabaseUrl, supabaseKey);
   } else {
-    console.warn("FalconWeight: Configuración incompleta. Iniciando Modo Local.");
+    console.warn("FalconWeight: Credenciales de Supabase no válidas. Activando Almacenamiento Local.");
     supabaseClient = new MockSupabase();
   }
 } catch (e) {
-  console.error("FalconWeight: Error crítico en Supabase. Usando Mock.", e);
+  console.error("FalconWeight: Error al inicializar Supabase. Usando Mock.", e);
   supabaseClient = new MockSupabase();
 }
 
