@@ -3,8 +3,15 @@ import { createClient } from '@supabase/supabase-js';
 const getEnv = (key: string): string => {
   try {
     // @ts-ignore
-    return (typeof process !== 'undefined' && process.env && process.env[key]) || '';
-  } catch { return ''; }
+    if (typeof process !== 'undefined' && process.env && process.env[key]) {
+      return process.env[key];
+    }
+    // @ts-ignore
+    if (import.meta && import.meta.env && import.meta.env[key]) {
+      return import.meta.env[key];
+    }
+  } catch (e) {}
+  return '';
 };
 
 const supabaseUrl = getEnv('SUPABASE_URL');
@@ -15,7 +22,7 @@ const isMock = !supabaseUrl || supabaseUrl === '' || supabaseUrl.includes('place
 class MockAuth {
   onAuthStateChange(cb: any) {
     const session = JSON.parse(localStorage.getItem('falcon_session') || 'null');
-    const timer = setTimeout(() => cb('INITIAL_SESSION', session), 100);
+    const timer = setTimeout(() => cb('INITIAL_SESSION', session), 200);
     return { data: { subscription: { unsubscribe: () => clearTimeout(timer) } } };
   }
   async signInWithPassword({ email }: any) {
