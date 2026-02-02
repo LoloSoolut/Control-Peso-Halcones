@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Bird, 
@@ -69,9 +68,15 @@ const AuthScreen: React.FC = () => {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
       } else {
-        const { error } = await supabase.auth.signUp({ email, password });
+        const { data, error } = await supabase.auth.signUp({ email, password });
         if (error) throw error;
-        alert('Registro completado. Ya puedes iniciar sesión.');
+        // En modo real Supabase puede no loguear al instante si requiere confirmación por email
+        if (data?.session) {
+           // Si ya tenemos sesión (modo mock), no hacemos nada más, el listener de AppContent se encargará
+        } else {
+           alert('Registro completado. Por favor, inicia sesión con tus credenciales.');
+           setIsLogin(true);
+        }
       }
     } catch (err: any) {
       setError(err.message || 'Error de conexión');

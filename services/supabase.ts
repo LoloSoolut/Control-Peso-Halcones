@@ -1,4 +1,3 @@
-
 import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = 'https://placeholder-project.supabase.co'; 
@@ -12,23 +11,33 @@ const isRealSupabase =
   supabaseKey.startsWith('eyJ');
 
 class MockSupabase {
+  private authStateChangeCallback: ((event: string, session: any) => void) | null = null;
+
   auth = {
     getSession: async () => {
       const session = localStorage.getItem('falcon_session');
       return { data: { session: session ? JSON.parse(session) : null }, error: null };
     },
     onAuthStateChange: (cb: any) => {
-      // Simulación básica de eventos de auth
-      return { data: { subscription: { unsubscribe: () => {} } } };
+      this.authStateChangeCallback = cb;
+      return { data: { subscription: { unsubscribe: () => { this.authStateChangeCallback = null; } } } };
     },
     signInWithPassword: async ({ email }: any) => {
       const session = { user: { id: 'local-user', email }, access_token: 'local-token' };
       localStorage.setItem('falcon_session', JSON.stringify(session));
+      if (this.authStateChangeCallback) this.authStateChangeCallback('SIGNED_IN', session);
       return { data: { session, user: session.user }, error: null };
     },
-    signUp: async ({ email }: any) => ({ data: { user: { id: 'local-user', email } }, error: null }),
+    signUp: async ({ email }: any) => {
+      // En el mock, el registro loguea automáticamente para mejorar UX
+      const session = { user: { id: 'local-user', email }, access_token: 'local-token' };
+      localStorage.setItem('falcon_session', JSON.stringify(session));
+      if (this.authStateChangeCallback) this.authStateChangeCallback('SIGNED_IN', session);
+      return { data: { session, user: session.user }, error: null };
+    },
     signOut: async () => {
       localStorage.removeItem('falcon_session');
+      if (this.authStateChangeCallback) this.authStateChangeCallback('SIGNED_OUT', null);
       return { error: null };
     }
   };
