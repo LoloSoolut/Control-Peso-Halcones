@@ -3,12 +3,17 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = 'https://placeholder-project.supabase.co'; 
 const supabaseKey = 'placeholder-key'; 
 
-// Detecta si las claves son reales o valores por defecto
-const isRealSupabase = 
-  supabaseUrl.includes('supabase.co') && 
-  !supabaseUrl.includes('placeholder-project') && 
-  supabaseKey.length > 20 &&
-  supabaseKey.startsWith('eyJ');
+// Función de validación mejorada
+const isValidConfig = () => {
+  return (
+    supabaseUrl && 
+    supabaseUrl.startsWith('https://') && 
+    !supabaseUrl.includes('placeholder-project') &&
+    supabaseKey && 
+    supabaseKey.length > 30 &&
+    supabaseKey !== 'placeholder-key'
+  );
+};
 
 class MockSupabase {
   private authStateChangeCallback: ((event: string, session: any) => void) | null = null;
@@ -29,7 +34,6 @@ class MockSupabase {
       return { data: { session, user: session.user }, error: null };
     },
     signUp: async ({ email }: any) => {
-      // En el mock, el registro loguea automáticamente para mejorar UX
       const session = { user: { id: 'local-user', email }, access_token: 'local-token' };
       localStorage.setItem('falcon_session', JSON.stringify(session));
       if (this.authStateChangeCallback) this.authStateChangeCallback('SIGNED_IN', session);
@@ -91,6 +95,18 @@ class MockSupabase {
   }
 }
 
-export const supabase = isRealSupabase 
-  ? createClient(supabaseUrl, supabaseKey) 
-  : (new MockSupabase() as any);
+let supabaseClient;
+
+try {
+  if (isValidConfig()) {
+    supabaseClient = createClient(supabaseUrl, supabaseKey);
+  } else {
+    console.warn("FalconWeight: Usando modo de almacenamiento local (Supabase no configurado)");
+    supabaseClient = new MockSupabase();
+  }
+} catch (e) {
+  console.error("FalconWeight: Error al inicializar Supabase, usando Mock", e);
+  supabaseClient = new MockSupabase();
+}
+
+export const supabase = supabaseClient as any;

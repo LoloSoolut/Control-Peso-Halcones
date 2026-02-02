@@ -38,9 +38,7 @@
             color: #0f172a;
             box-shadow: 0 0 40px rgba(0,0,0,0.5);
             margin-bottom: 24px;
-            animation: bounce 2s infinite ease-in-out;
         }
-        @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
         .status-text {
             font-size: 12px;
             text-transform: uppercase;
@@ -86,31 +84,13 @@
             </div>
             <h1 class="text-3xl font-black tracking-tight">FalconWeight Pro</h1>
             <p id="progress-msg" class="status-text">Cargando módulos de vuelo...</p>
-            <div class="mt-8 flex gap-2">
-                <div class="w-2 h-2 rounded-full bg-white opacity-20 animate-pulse"></div>
-                <div class="w-2 h-2 rounded-full bg-white opacity-20 animate-pulse" style="animation-delay: 0.2s"></div>
-                <div class="w-2 h-2 rounded-full bg-white opacity-20 animate-pulse" style="animation-delay: 0.4s"></div>
-            </div>
         </div>
     </div>
     <script>
-        const msg = document.getElementById('progress-msg');
-        window.addEventListener('load', () => {
-            if(msg) msg.innerText = "Sincronizando interfaz...";
-        });
-        
-        window.onerror = function(message, source, lineno, colno, error) {
-            document.body.innerHTML = `
-                <div class="error-overlay">
-                    <div class="bg-white/10 p-6 rounded-3xl border border-white/20">
-                        <h2 class="text-2xl font-black mb-2">Error de Despegue</h2>
-                        <p class="opacity-70 mb-6">La aplicación no pudo iniciarse.</p>
-                        <code class="block bg-black/40 p-4 rounded-xl text-xs text-left overflow-auto max-w-xs mb-6">${message}</code>
-                        <button onclick="location.reload()" class="bg-white text-red-900 px-8 py-4 rounded-2xl font-black">REINTENTAR</button>
-                    </div>
-                </div>
-            `;
-            return false;
+        window.onerror = function(message) {
+            const msg = document.getElementById('progress-msg');
+            if (msg) msg.innerText = "Error: " + message;
+            console.error(message);
         };
     </script>
     <script type="module" src="index.tsx"></script>
