@@ -1,95 +1,93 @@
 
 import { createClient } from '@supabase/supabase-js';
 
-// --- CONFIGURACIÓN DE SUPABASE ---
-const supabaseUrl = 'https://esyzhzplfyoodjzmxvfd.supabase.co';
-// Widening the type to string to avoid literal type comparison errors in isPlaceholder
-const supabaseKey: string = 'sb_publishable_p_uQaFT7nnBFVUspTf8dUA_54-ig3Rb';
+/**
+ * CONFIGURACIÓN DE SUPABASE
+ * ------------------------
+ * 1. Ve a supabase.com
+ * 2. Crea un proyecto.
+ * 3. En Settings > API busca la 'URL' y la 'anon public key'.
+ */
+const supabaseUrl = 'https://tu-proyecto.supabase.co'; 
+const supabaseKey = 'tu-clave-anon'; 
 
-// Las claves de Supabase Anon reales son JWTs que empiezan por 'eyJ'.
-// Si la clave no parece válida o es la de ejemplo, activamos el Mock.
-const isPlaceholder = 
-  supabaseUrl.includes('tu-proyecto') || 
-  supabaseKey === 'tu-anon-key' || 
-  supabaseKey.startsWith('sb_'); // Detectamos si se ha puesto una clave que no es de Supabase Anon
+// Verificamos si las claves son reales (Las de Supabase empiezan por 'eyJ...')
+const isRealSupabase = 
+  supabaseUrl.startsWith('https://') && 
+  !supabaseUrl.includes('tu-proyecto') && 
+  supabaseKey.startsWith('eyJ');
 
+/**
+ * MockSupabase: Sistema de respaldo para que la app funcione sin internet
+ * o sin configuración de base de datos (usando memoria local del móvil).
+ */
 class MockSupabase {
   auth = {
     getSession: async () => {
-      const session = localStorage.getItem('falcon_mock_session');
+      const session = localStorage.getItem('falcon_session');
       return { data: { session: session ? JSON.parse(session) : null }, error: null };
     },
-    onAuthStateChange: (callback: any) => {
-      return { data: { subscription: { unsubscribe: () => {} } } };
-    },
+    onAuthStateChange: (cb: any) => ({ data: { subscription: { unsubscribe: () => {} } } }),
     signInWithPassword: async ({ email }: any) => {
-      const user = { id: 'mock-user-id', email };
-      const session = { user, access_token: 'mock-token' };
-      localStorage.setItem('falcon_mock_session', JSON.stringify(session));
-      return { data: { session, user }, error: null };
+      const session = { user: { id: 'local-user', email }, access_token: 'local-token' };
+      localStorage.setItem('falcon_session', JSON.stringify(session));
+      return { data: { session, user: session.user }, error: null };
     },
-    signUp: async ({ email }: any) => {
-      const user = { id: 'mock-user-id', email };
-      return { data: { user }, error: null };
-    },
+    signUp: async ({ email }: any) => ({ data: { user: { id: 'local-user', email } }, error: null }),
     signOut: async () => {
-      localStorage.removeItem('falcon_mock_session');
+      localStorage.removeItem('falcon_session');
       return { error: null };
     }
   };
 
   from(table: string) {
-    const getLocalData = () => JSON.parse(localStorage.getItem(`mock_db_${table}`) || '[]');
-    const saveLocalData = (data: any) => localStorage.setItem(`mock_db_${table}`, JSON.stringify(data));
+    const getData = () => JSON.parse(localStorage.getItem(`db_${table}`) || '[]');
+    const saveData = (d: any) => localStorage.setItem(`db_${table}`, JSON.stringify(d));
 
-    // Helper para simular una respuesta de Supabase (Thenable)
-    const createResponse = (data: any) => {
-      const resp = Promise.resolve({ data, error: null }) as any;
-      resp.eq = () => createResponse(data);
-      resp.order = () => createResponse(data);
-      resp.single = () => createResponse(Array.isArray(data) ? data[0] : data);
-      resp.select = () => createResponse(data);
-      return resp;
+    const queryMethods = (data: any) => {
+      const promise = Promise.resolve({ data, error: null }) as any;
+      promise.eq = (col: string, val: any) => {
+        const filtered = Array.isArray(data) ? data.filter(i => i[col] === val) : data;
+        return queryMethods(filtered);
+      };
+      promise.order = () => promise;
+      promise.single = () => queryMethods(Array.isArray(data) ? data[0] : data);
+      promise.select = () => promise;
+      return promise;
     };
 
     return {
-      select: (query: string = '*') => {
-        let data = getLocalData();
-        // Simulación básica de joins para el Mock
+      select: () => {
+        let data = getData();
+        // Simular joins para que la app no pete
         if (table === 'hawks') {
-          const entries = JSON.parse(localStorage.getItem('mock_db_entries') || '[]');
-          const food = JSON.parse(localStorage.getItem('mock_db_food_items') || '[]');
+          const entries = JSON.parse(localStorage.getItem('db_entries') || '[]');
+          const food = JSON.parse(localStorage.getItem('db_food_items') || '[]');
           data = data.map((h: any) => ({
             ...h,
-            entries: entries
-              .filter((e: any) => e.hawk_id === h.id)
-              .map((e: any) => ({
-                ...e,
-                food_items: food.filter((f: any) => f.entry_id === e.id)
-              }))
+            entries: entries.filter((e: any) => e.hawk_id === h.id)
+              .map((e: any) => ({ ...e, food_items: food.filter((f: any) => f.entry_id === e.id) }))
           }));
         }
-        return createResponse(data);
+        return queryMethods(data);
       },
       insert: (rows: any[]) => {
-        const current = getLocalData();
+        const current = getData();
         const newRows = rows.map(r => ({ ...r, id: crypto.randomUUID(), created_at: new Date().toISOString() }));
-        saveLocalData([...current, ...newRows]);
-        return createResponse(newRows[0]);
+        saveData([...current, ...newRows]);
+        return queryMethods(newRows[0]);
       },
-      delete: () => {
-        return {
-          eq: (col: string, val: any) => {
-            const filtered = getLocalData().filter((item: any) => item[col] !== val);
-            saveLocalData(filtered);
-            return Promise.resolve({ error: null });
-          }
-        };
-      }
+      delete: () => ({
+        eq: (col: string, val: any) => {
+          saveData(getData().filter((i: any) => i[col] !== val));
+          return Promise.resolve({ error: null });
+        }
+      })
     };
   }
 }
 
-export const supabase = isPlaceholder 
-  ? (new MockSupabase() as any) 
-  : createClient(supabaseUrl, supabaseKey);
+// Exportamos el cliente: Real si hay claves, de lo contrario el Mock local.
+export const supabase = isRealSupabase 
+  ? createClient(supabaseUrl, supabaseKey) 
+  : (new MockSupabase() as any);
