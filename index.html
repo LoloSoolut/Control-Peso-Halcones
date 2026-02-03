@@ -36,7 +36,6 @@
             border-top: 4px solid #10b981;
             border-radius: 50%;
             animation: spin 1s linear infinite;
-            margin-bottom: 1rem;
         }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         .no-scrollbar::-webkit-scrollbar { display: none; }
@@ -52,8 +51,8 @@
     "lucide-react": "https://esm.sh/lucide-react@0.454.0?deps=react@18.3.1",
     "recharts": "https://esm.sh/recharts@2.12.7?deps=react@18.3.1",
     "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2.45.4",
-    "react/": "https://esm.sh/react@^19.2.4/",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.4/"
+    "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
+    "react/": "https://esm.sh/react@^19.2.4/"
   }
 }
 </script>
@@ -72,19 +71,16 @@
                 setTimeout(() => layer.style.display = 'none', 500);
             }
         });
-
-        // Fail-safe por si hay problemas de red
         setTimeout(() => {
-            const text = document.getElementById('loading-text');
             const layer = document.getElementById('loading-layer');
-            if (text && layer && layer.style.display !== 'none') {
-                text.innerText = "Error de conexión. Pulsa para reintentar.";
+            if (layer && layer.style.display !== 'none') {
+                const text = document.getElementById('loading-text');
+                text.innerText = "Error de carga. Toca para reintentar.";
                 text.classList.add('text-red-500');
-                text.style.cursor = 'pointer';
                 text.onclick = () => window.location.reload();
             }
-        }, 12000);
+        }, 15000);
     </script>
-    <script type="module" src="/index.tsx"></script>
+    <script type="module" src="index.tsx"></script>
 </body>
 </html>

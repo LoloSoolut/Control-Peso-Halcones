@@ -1,7 +1,5 @@
 {
   "cleanUrls": true,
-  "framework": null,
-  "outputDirectory": ".",
   "rewrites": [
     {
       "source": "/((?!.*\\.).*)",
