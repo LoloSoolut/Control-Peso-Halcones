@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Bird, Plus, ChevronLeft, Trash2, LogOut, 
@@ -14,14 +13,14 @@ import {
   CartesianGrid, XAxis, YAxis, Tooltip, ReferenceLine
 } from 'recharts';
 
-const SPECIES_OPTIONS = ['Peregrino', 'Híbrido', 'Gerifalte', 'Lanario', 'Sacre'];
+const SPECIES_OPTIONS = ['Peregrine', 'Hybrid', 'Gyrfalcon', 'Lanner', 'Saker'];
 
 const FOOD_COLORS: Record<FoodCategory, { bg: string, border: string, text: string, hover: string, badge: string }> = {
-  'Pollito': { bg: 'bg-amber-50', border: 'border-amber-200', text: 'text-amber-800', hover: 'hover:bg-amber-100', badge: 'bg-amber-500' },
-  'Paloma': { bg: 'bg-red-50', border: 'border-red-200', text: 'text-red-800', hover: 'hover:bg-red-100', badge: 'bg-red-600' },
-  'Codorniz': { bg: 'bg-rose-50', border: 'border-rose-200', text: 'text-rose-800', hover: 'hover:bg-rose-100', badge: 'bg-rose-500' },
-  'Perdiz': { bg: 'bg-orange-50', border: 'border-orange-200', text: 'text-orange-800', hover: 'hover:bg-orange-100', badge: 'bg-orange-600' },
-  'Pato': { bg: 'bg-red-900/5', border: 'border-red-900/20', text: 'text-red-950', hover: 'hover:bg-red-900/10', badge: 'bg-red-900' }
+  'Chick': { bg: 'bg-amber-50', border: 'border-amber-200', text: 'text-amber-800', hover: 'hover:bg-amber-100', badge: 'bg-amber-500' },
+  'Pigeon': { bg: 'bg-red-50', border: 'border-red-200', text: 'text-red-800', hover: 'hover:bg-red-100', badge: 'bg-red-600' },
+  'Quail': { bg: 'bg-rose-50', border: 'border-rose-200', text: 'text-rose-800', hover: 'hover:bg-rose-100', badge: 'bg-rose-500' },
+  'Partridge': { bg: 'bg-orange-50', border: 'border-orange-200', text: 'text-orange-800', hover: 'hover:bg-orange-100', badge: 'bg-orange-600' },
+  'Duck': { bg: 'bg-red-900/5', border: 'border-red-900/20', text: 'text-red-950', hover: 'hover:bg-red-900/10', badge: 'bg-red-900' }
 };
 
 const App: React.FC = () => {
@@ -116,29 +115,28 @@ const App: React.FC = () => {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
       } else if (action === 'SIGNUP') {
-        if (!email || !password) throw new Error("Email y contraseña requeridos.");
+        if (!email || !password) throw new Error("Email and password required.");
         const { error } = await supabase.auth.signUp({ email, password });
         if (error) {
           if (error.message.toLowerCase().includes('already registered') || 
-              error.message.toLowerCase().includes('ya está registrado') ||
               error.status === 400) {
-            throw new Error("Este email ya está guardado en nuestra base de datos. Por favor, inicia sesión.");
+            throw new Error("This email is already stored in our database. Please log in.");
           }
           throw error;
         }
-        alert("¡Cuenta creada y contraseña asociada con éxito!");
+        alert("Account created and password associated successfully!");
       } else if (action === 'RECOVER') {
-        if (!email) throw new Error("Introduce tu email para recuperar la contraseña.");
+        if (!email) throw new Error("Enter your email to recover your password.");
         
         if (!IS_MOCK_MODE) {
           await supabase.auth.resetPasswordForEmail(email);
         }
         
-        alert(`Solicitud de recuperación procesada. Se ha enviado un aviso de recuperación. Un administrador revisará tu caso y te contactará desde lologc@msn.com.`);
+        alert(`Recovery request processed. A recovery notice has been sent. An administrator will review your case and contact you from lologc@msn.com.`);
         setView('AUTH');
       }
     } catch (e: any) {
-      setAuthError(e.message || "Error de operación");
+      setAuthError(e.message || "Operation error");
     } finally {
       setLoading(false);
     }
@@ -295,9 +293,9 @@ const App: React.FC = () => {
   const chartData = useMemo(() => {
     if (!selectedHawk) return [];
     return [...selectedHawk.entries].reverse().map(e => ({
-      fecha: new Date(e.date).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }),
-      peso: e.weightBefore,
-      comida: e.totalFoodWeight
+      date: new Date(e.date).toLocaleDateString('en-US', { day: 'numeric', month: 'short' }),
+      weight: e.weightBefore,
+      food: e.totalFoodWeight
     }));
   }, [selectedHawk]);
 
@@ -311,7 +309,7 @@ const App: React.FC = () => {
       {loading && (
         <div className="absolute inset-0 bg-white/80 backdrop-blur-md z-50 flex flex-col items-center justify-center">
           <div className="spinner"></div>
-          <p className="mt-4 text-[10px] font-black uppercase tracking-[0.3em] text-red-600">Actualizando Halcones...</p>
+          <p className="mt-4 text-[10px] font-black uppercase tracking-[0.3em] text-red-600">Updating Falcons...</p>
         </div>
       )}
 
@@ -341,7 +339,7 @@ const App: React.FC = () => {
                   <ShieldCheck className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                   <input 
                     type={showPassword ? "text" : "password"} 
-                    placeholder="CONTRASEÑA" 
+                    placeholder="PASSWORD" 
                     value={password} 
                     onChange={e => setPassword(e.target.value)} 
                     className="w-full pl-12 pr-12 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-red-600 font-bold" 
@@ -364,27 +362,27 @@ const App: React.FC = () => {
             <div className="pt-2">
               {view === 'AUTH' && (
                 <div className="space-y-4">
-                  <button onClick={() => handleAuth('LOGIN')} className="w-full py-5 bg-red-600 text-white font-black rounded-2xl shadow-xl shadow-red-600/20 text-lg tracking-widest uppercase border-b-4 border-red-800 active:translate-y-1 transition-all">Entrar</button>
+                  <button onClick={() => handleAuth('LOGIN')} className="w-full py-5 bg-red-600 text-white font-black rounded-2xl shadow-xl shadow-red-600/20 text-lg tracking-widest uppercase border-b-4 border-red-800 active:translate-y-1 transition-all">Sign In</button>
                   <div className="flex flex-col gap-3">
-                    <button onClick={() => { setView('SIGNUP'); setAuthError(null); }} className="text-slate-400 font-black text-[10px] uppercase tracking-widest hover:text-slate-900 transition-colors">¿No tienes cuenta? Regístrate</button>
-                    <button onClick={() => { setView('RECOVER'); setAuthError(null); }} className="text-red-600/60 font-black text-[10px] uppercase tracking-widest hover:text-red-600 transition-colors italic">¿Olvidaste tu contraseña?</button>
+                    <button onClick={() => { setView('SIGNUP'); setAuthError(null); }} className="text-slate-400 font-black text-[10px] uppercase tracking-widest hover:text-slate-900 transition-colors">Don't have an account? Sign Up</button>
+                    <button onClick={() => { setView('RECOVER'); setAuthError(null); }} className="text-red-600/60 font-black text-[10px] uppercase tracking-widest hover:text-red-600 transition-colors italic">Forgot your password?</button>
                   </div>
                 </div>
               )}
 
               {view === 'SIGNUP' && (
                 <div className="space-y-4">
-                  <button onClick={() => handleAuth('SIGNUP')} className="w-full py-5 bg-slate-900 text-white font-black rounded-2xl shadow-xl shadow-slate-900/20 text-lg tracking-widest uppercase border-b-4 border-slate-700 active:translate-y-1 transition-all">Registrarse</button>
-                  <button onClick={() => { setView('AUTH'); setAuthError(null); }} className="text-slate-400 font-black text-[10px] uppercase tracking-widest hover:text-slate-900 transition-colors">Ya tengo cuenta, volver</button>
+                  <button onClick={() => handleAuth('SIGNUP')} className="w-full py-5 bg-slate-900 text-white font-black rounded-2xl shadow-xl shadow-slate-900/20 text-lg tracking-widest uppercase border-b-4 border-slate-700 active:translate-y-1 transition-all">Sign Up</button>
+                  <button onClick={() => { setView('AUTH'); setAuthError(null); }} className="text-slate-400 font-black text-[10px] uppercase tracking-widest hover:text-slate-900 transition-colors">Already have an account? Back</button>
                 </div>
               )}
 
               {view === 'RECOVER' && (
                 <div className="space-y-4">
-                  <button onClick={() => handleAuth('RECOVER')} className="w-full py-5 bg-red-600 text-white font-black rounded-2xl shadow-xl shadow-red-600/20 text-lg tracking-widest uppercase border-b-4 border-red-800 active:translate-y-1 transition-all">Recuperar acceso</button>
-                  <button onClick={() => { setView('AUTH'); setAuthError(null); }} className="text-slate-400 font-black text-[10px] uppercase tracking-widest hover:text-slate-900 transition-colors">Volver al inicio</button>
+                  <button onClick={() => handleAuth('RECOVER')} className="w-full py-5 bg-red-600 text-white font-black rounded-2xl shadow-xl shadow-red-600/20 text-lg tracking-widest uppercase border-b-4 border-red-800 active:translate-y-1 transition-all">Recover Access</button>
+                  <button onClick={() => { setView('AUTH'); setAuthError(null); }} className="text-slate-400 font-black text-[10px] uppercase tracking-widest hover:text-slate-900 transition-colors">Back to Login</button>
                   <p className="text-[9px] font-black text-slate-300 uppercase leading-relaxed pt-4 border-t border-slate-50">
-                    Las solicitudes se gestionan vía <span className="text-red-600 font-bold">lologc@msn.com</span>
+                    Requests are handled via <span className="text-red-600 font-bold">lologc@msn.com</span>
                   </p>
                 </div>
               )}
@@ -397,41 +395,45 @@ const App: React.FC = () => {
         <>
           <header className="p-8 flex justify-between items-center border-b border-slate-50 bg-white sticky top-0 z-10">
             <div>
-              <h2 className="text-2xl font-black tracking-tighter uppercase italic">Mis <span className="text-red-600">Halcones</span></h2>
+              <h2 className="text-2xl font-black tracking-tighter uppercase italic">My <span className="text-red-600">Falcons</span></h2>
               <div className="flex items-center gap-2 mt-1">
                 <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-                <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">{hawks.length} Halcones Activos</p>
+                <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">{hawks.length} Active Falcons</p>
               </div>
             </div>
             <button onClick={() => setView('ADD_HAWK')} className="w-14 h-14 bg-red-600 rounded-2xl flex items-center justify-center text-white shadow-xl border-b-4 border-red-800 active:scale-95 transition-all"><Plus size={32}/></button>
           </header>
-          <main className="flex-1 overflow-y-auto p-6 space-y-4 no-scrollbar">
+          <main className="flex-1 overflow-y-auto p-6 space-y-5 no-scrollbar">
             {hawks.map(h => {
               const estWeight = calculatePrediction(h);
               const lastWeight = h.entries[0]?.weightBefore;
               return (
-                <div key={h.id} onClick={() => { setSelectedHawkId(h.id); setView('HAWK_DETAILS'); }} className="group bg-white border-2 border-slate-50 p-6 rounded-[2.5rem] flex justify-between items-center shadow-sm hover:border-red-600 transition-all cursor-pointer">
-                  <div className="flex items-center gap-4">
-                    <div className="w-14 h-14 bg-slate-50 text-slate-400 group-hover:bg-red-600 group-hover:text-white rounded-[1.5rem] flex items-center justify-center transition-all shadow-inner shrink-0"><Bird size={28}/></div>
+                <div key={h.id} onClick={() => { setSelectedHawkId(h.id); setView('HAWK_DETAILS'); }} className="group bg-white border-2 border-slate-50 p-6 rounded-[3rem] flex flex-col md:flex-row md:items-center justify-between shadow-sm hover:border-red-600 hover:shadow-xl hover:shadow-red-600/5 transition-all cursor-pointer relative overflow-hidden">
+                  <div className="flex items-center gap-5 mb-6 md:mb-0">
+                    <div className="w-16 h-16 bg-slate-50 text-slate-400 group-hover:bg-red-600 group-hover:text-white rounded-[2rem] flex items-center justify-center transition-all shadow-inner shrink-0"><Bird size={32}/></div>
                     <div className="overflow-hidden">
-                      <h3 className="font-black text-xl tracking-tighter truncate">{h.name}</h3>
-                      <p className="text-[9px] text-slate-300 font-black uppercase tracking-[0.1em]">{h.species}</p>
+                      <h3 className="font-black text-2xl tracking-tighter truncate leading-tight">{h.name}</h3>
+                      <p className="text-[10px] text-slate-300 font-black uppercase tracking-[0.2em]">{h.species}</p>
                     </div>
                   </div>
                   
-                  <div className="flex items-center gap-3 shrink-0">
-                    <div className="text-center px-1">
-                      <p className="text-[7px] font-black text-slate-300 uppercase tracking-tighter">OBJ</p>
-                      <p className="text-xs font-black tabular-nums text-slate-900">{h.targetWeight}g</p>
+                  <div className="grid grid-cols-3 gap-2 md:gap-4 shrink-0 bg-slate-50/50 p-3 rounded-[2rem] md:p-1 md:bg-transparent">
+                    <div className="text-center bg-white md:bg-transparent p-3 md:p-2 rounded-2xl md:rounded-none shadow-sm md:shadow-none border border-slate-50 md:border-none">
+                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Target</p>
+                      <p className="text-lg font-black tabular-nums text-slate-900 leading-none">{h.targetWeight}<span className="text-[10px] ml-0.5">g</span></p>
                     </div>
-                    <div className="text-center px-1 border-x border-slate-100">
-                      <p className="text-[7px] font-black text-slate-300 uppercase tracking-tighter">ULT</p>
-                      <p className="text-xs font-black tabular-nums text-red-600">{lastWeight || '--'}g</p>
+                    <div className="text-center bg-white md:bg-transparent p-3 md:p-2 rounded-2xl md:rounded-none shadow-sm md:shadow-none border border-slate-50 md:border-none border-x-0 md:border-x md:border-slate-100">
+                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Last</p>
+                      <p className="text-lg font-black tabular-nums text-red-600 leading-none">{lastWeight || '--'}<span className="text-[10px] ml-0.5">g</span></p>
                     </div>
-                    <div className="text-center px-2 py-1 bg-slate-900 rounded-xl">
-                      <p className="text-[7px] font-black text-slate-500 uppercase tracking-tighter">EST</p>
-                      <p className="text-xs font-black tabular-nums text-white">{estWeight || '--'}g</p>
+                    <div className="text-center bg-slate-900 p-3 md:p-3 rounded-2xl md:rounded-[1.2rem] shadow-xl shadow-slate-900/10 min-w-[70px]">
+                      <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">Est.</p>
+                      <p className="text-lg font-black tabular-nums text-white leading-none">{estWeight || '--'}<span className="text-[10px] ml-0.5">g</span></p>
                     </div>
+                  </div>
+                  
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 group-hover:translate-x-0 translate-x-4 transition-all hidden md:block">
+                    <ChevronRight className="text-red-600" size={24} />
                   </div>
                 </div>
               );
@@ -443,7 +445,7 @@ const App: React.FC = () => {
                   onClick={() => supabase.auth.signOut()} 
                   className="text-slate-300 font-black text-[10px] uppercase tracking-[0.3em] flex items-center gap-2 hover:text-red-600 transition-colors bg-slate-50 px-6 py-3 rounded-full"
                 >
-                  <LogOut size={14}/> Cerrar Sesión
+                  <LogOut size={14}/> Sign Out
                 </button>
               </div>
             )}
@@ -461,18 +463,18 @@ const App: React.FC = () => {
                 <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">CONTROL YOUR FALCONS</p>
               </div>
             </div>
-            <button onClick={() => { if(confirm('¿Eliminar registro?')) deleteHawkItem(selectedHawk.id) }} className="w-12 h-12 bg-slate-50 text-slate-200 hover:text-red-600 rounded-2xl flex items-center justify-center transition-colors"><Trash2 size={20}/></button>
+            <button onClick={() => { if(confirm('Delete record?')) deleteHawkItem(selectedHawk.id) }} className="w-12 h-12 bg-slate-50 text-slate-200 hover:text-red-600 rounded-2xl flex items-center justify-center transition-colors"><Trash2 size={20}/></button>
           </header>
           
           <main className="flex-1 overflow-y-auto p-6 space-y-6 no-scrollbar pb-40">
             <div className="grid grid-cols-2 gap-4">
               <div className="bg-red-600 p-8 rounded-[3rem] text-white shadow-2xl shadow-red-600/20 border-b-8 border-red-800">
-                <p className="text-[10px] font-black uppercase tracking-widest opacity-60 mb-2">Peso Actual</p>
+                <p className="text-[10px] font-black uppercase tracking-widest opacity-60 mb-2">Current Weight</p>
                 <p className="text-5xl font-black leading-none">{selectedHawk.entries[0]?.weightBefore || '--'}<span className="text-sm font-bold ml-1">g</span></p>
               </div>
               
               <div className="bg-slate-900 p-8 rounded-[3rem] text-white border-b-8 border-slate-800 relative overflow-hidden group">
-                <p className="text-[10px] font-black uppercase tracking-widest opacity-60 mb-2">Objetivo</p>
+                <p className="text-[10px] font-black uppercase tracking-widest opacity-60 mb-2">Target</p>
                 {isEditingTarget ? (
                   <div className="space-y-3 animate-in fade-in duration-300">
                     <input 
@@ -510,7 +512,7 @@ const App: React.FC = () => {
                 <div className="flex items-center gap-4">
                   <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-red-600 shadow-sm"><Activity size={24}/></div>
                   <div>
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Predicción Mañana</p>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Tomorrow's Prediction</p>
                     <p className="text-2xl font-black tracking-tighter">{nextDayPrediction}g</p>
                   </div>
                 </div>
@@ -518,26 +520,26 @@ const App: React.FC = () => {
             )}
 
             <div className="bg-white rounded-[3rem] border-2 border-slate-50 p-6 shadow-sm">
-               <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4 text-center">Historial de Pesos</h4>
+               <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4 text-center">Weight History</h4>
                <div className="h-48">
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={chartData}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                    <XAxis dataKey="fecha" axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#cbd5e1'}} />
+                    <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#cbd5e1'}} />
                     <Tooltip />
-                    <Area type="monotone" dataKey="peso" stroke="#dc2626" strokeWidth={4} fill="#dc2626" fillOpacity={0.1} />
+                    <Area type="monotone" dataKey="weight" stroke="#dc2626" strokeWidth={4} fill="#dc2626" fillOpacity={0.1} />
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
             </div>
 
             <div className="space-y-4">
-              <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Diario de Vuelo</h4>
+              <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Flight Log</h4>
               {selectedHawk.entries.map(e => (
                 <div key={e.id} className="bg-white border-2 border-slate-50 p-6 rounded-[2.5rem] shadow-sm flex items-center justify-between">
                   <div>
                     <p className="text-xl font-black">{e.weightBefore}g</p>
-                    <p className="text-[10px] font-black text-red-600 uppercase tracking-widest">{e.totalFoodWeight}g alimento</p>
+                    <p className="text-[10px] font-black text-red-600 uppercase tracking-widest">{e.totalFoodWeight}g food</p>
                   </div>
                   <div className="text-right text-[10px] font-bold text-slate-300 uppercase">
                     {new Date(e.date).toLocaleDateString()}
@@ -549,7 +551,7 @@ const App: React.FC = () => {
 
           <div className="absolute bottom-10 left-0 right-0 px-8 flex justify-center pointer-events-none">
             <button onClick={() => setView('ADD_ENTRY')} className="w-full max-w-sm py-6 bg-red-600 text-white font-black rounded-[2rem] shadow-2xl shadow-red-600/40 flex items-center justify-center gap-3 active:scale-95 transition-all pointer-events-auto text-lg uppercase tracking-[0.2em] border-b-4 border-red-800 italic">
-              <Plus size={24} /> Registrar Peso
+              <Plus size={24} /> Record Weight
             </button>
           </div>
         </>
@@ -559,12 +561,12 @@ const App: React.FC = () => {
         <main className="flex-1 flex flex-col p-8 space-y-8 bg-white overflow-y-auto no-scrollbar pb-32">
           <div className="flex items-center justify-between">
             <button onClick={() => setView('HAWK_DETAILS')} className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-400"><ChevronLeft/></button>
-            <h2 className="text-xl font-black uppercase italic tracking-tighter">Nuevo <span className="text-red-600">Peso</span></h2>
+            <h2 className="text-xl font-black uppercase italic tracking-tighter">New <span className="text-red-600">Weight</span></h2>
             <div className="w-12"></div>
           </div>
 
           <div className="text-center space-y-2">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em]">Peso Actual (g)</p>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em]">Current Weight (g)</p>
             <input value={weightBefore} onChange={e => setWeightBefore(e.target.value)} type="number" placeholder="000" className="w-full bg-transparent border-none font-black text-center text-8xl outline-none text-slate-900 placeholder:text-slate-100 tabular-nums" autoFocus />
           </div>
 
@@ -572,7 +574,7 @@ const App: React.FC = () => {
             <div className="flex justify-between items-center px-4 bg-slate-900 p-4 rounded-3xl text-white">
               <div className="flex items-center gap-2">
                 <Utensils size={18} className="text-red-500" />
-                <h3 className="text-[11px] font-black uppercase tracking-widest">Alimento Seleccionado</h3>
+                <h3 className="text-[11px] font-black uppercase tracking-widest">Selected Food</h3>
               </div>
               <div className="text-2xl font-black text-red-500">{totalFoodWeight}g</div>
             </div>
@@ -623,7 +625,7 @@ const App: React.FC = () => {
 
             {currentFoodSelections.length > 0 && (
               <div className="bg-slate-50 p-6 rounded-[2.5rem] border-2 border-slate-100">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Resumen</p>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Summary</p>
                 <div className="flex flex-wrap gap-2">
                   {currentFoodSelections.map(f => (
                     <div key={f.id} className="bg-white px-4 py-2 rounded-full border border-slate-200 flex items-center gap-2 shadow-sm">
@@ -642,7 +644,7 @@ const App: React.FC = () => {
               onClick={saveEntry} 
               className="w-full max-w-sm py-6 bg-red-600 disabled:bg-slate-200 text-white font-black rounded-[2rem] shadow-2xl uppercase tracking-[0.2em] border-b-4 border-red-800 transition-all active:translate-y-1 italic text-lg"
             >
-              Grabar Peso
+              Save Weight
             </button>
           </div>
         </main>
@@ -652,26 +654,26 @@ const App: React.FC = () => {
         <main className="p-8 space-y-8 flex-1 flex flex-col bg-white">
           <div className="flex items-center gap-4">
             <button onClick={() => setView('DASHBOARD')} className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-400"><ChevronLeft/></button>
-            <h2 className="text-2xl font-black uppercase italic tracking-tighter">Nuevo <span className="text-red-600">Halcón</span></h2>
+            <h2 className="text-2xl font-black uppercase italic tracking-tighter">New <span className="text-red-600">Falcon</span></h2>
           </div>
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest -mt-4">CONTROL YOUR FALCONS</p>
           <div className="space-y-6">
             <div className="space-y-1">
-              <label className="text-[10px] font-black text-slate-300 uppercase tracking-widest ml-4">Nombre</label>
-              <input value={hawkName} onChange={e => setHawkName(e.target.value)} placeholder="Ej: Ártico" className="w-full p-6 bg-slate-50 border-2 border-slate-100 rounded-3xl font-black text-xl outline-none" />
+              <label className="text-[10px] font-black text-slate-300 uppercase tracking-widest ml-4">Name</label>
+              <input value={hawkName} onChange={e => setHawkName(e.target.value)} placeholder="e.g.: Artic" className="w-full p-6 bg-slate-50 border-2 border-slate-100 rounded-3xl font-black text-xl outline-none" />
             </div>
             <div className="space-y-1">
-              <label className="text-[10px] font-black text-slate-300 uppercase tracking-widest ml-4">Especie</label>
+              <label className="text-[10px] font-black text-slate-300 uppercase tracking-widest ml-4">Species</label>
               <select value={hawkSpecies} onChange={e => setHawkSpecies(e.target.value)} className="w-full p-6 bg-slate-50 border-2 border-slate-100 rounded-3xl font-black text-xl outline-none uppercase">
                 {SPECIES_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
               </select>
             </div>
             <div className="space-y-1">
-              <label className="text-[10px] font-black text-slate-300 uppercase tracking-widest ml-4">Peso de Vuelo Objetivo (g)</label>
-              <input value={hawkTargetWeight} onChange={e => setHawkTargetWeight(e.target.value)} type="number" placeholder="Ej: 850" className="w-full p-6 bg-slate-50 border-2 border-slate-100 rounded-3xl font-black text-xl outline-none text-red-600" />
+              <label className="text-[10px] font-black text-slate-300 uppercase tracking-widest ml-4">Target Flight Weight (g)</label>
+              <input value={hawkTargetWeight} onChange={e => setHawkTargetWeight(e.target.value)} type="number" placeholder="e.g.: 850" className="w-full p-6 bg-slate-50 border-2 border-slate-100 rounded-3xl font-black text-xl outline-none text-red-600" />
             </div>
           </div>
-          <button onClick={addHawk} className="w-full py-6 bg-red-600 text-white font-black rounded-[2rem] mt-auto uppercase tracking-widest border-b-4 border-red-800 italic text-lg active:scale-95 transition-all">Añadir halcón</button>
+          <button onClick={addHawk} className="w-full py-6 bg-red-600 text-white font-black rounded-[2rem] mt-auto uppercase tracking-widest border-b-4 border-red-800 italic text-lg active:scale-95 transition-all">Add Falcon</button>
         </main>
       )}
     </div>

@@ -1,4 +1,3 @@
-
 import { createClient } from '@supabase/supabase-js';
 
 const getEnvVar = (name: string): string => {
@@ -65,7 +64,7 @@ class MockAuth {
     const user = users[email.toLowerCase()];
     
     if (!user || user.password !== password) {
-      return { data: { session: null }, error: { message: "Credenciales inválidas", status: 400 } };
+      return { data: { session: null }, error: { message: "Invalid credentials", status: 400 } };
     }
 
     const session = { user: { id: user.id, email }, access_token: 'mock-token-local' };
@@ -77,7 +76,7 @@ class MockAuth {
   async signUp({ email, password }: { email: string, password: any }) {
     const users = this.getUsers();
     if (users[email.toLowerCase()]) {
-      return { data: { session: null }, error: { message: "Este email ya está registrado. Por favor, inicia sesión.", status: 400 } };
+      return { data: { session: null }, error: { message: "This email is already registered. Please sign in.", status: 400 } };
     }
     
     const newUser = this.saveUser(email, password);
