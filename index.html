@@ -85,12 +85,12 @@
             if (layer && layer.style.display !== 'none') {
                 const text = document.getElementById('loading-text');
                 if (text) {
-                  text.innerText = "Error de conexión. Reintentando...";
+                  text.innerText = "Reintentando conexión...";
                   text.classList.add('text-red-600');
-                  setTimeout(() => window.location.reload(), 2000);
+                  setTimeout(() => window.location.reload(), 3000);
                 }
             }
-        }, 12000);
+        }, 15000);
     </script>
 </body>
 </html>
