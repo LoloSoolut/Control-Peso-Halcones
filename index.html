@@ -71,15 +71,17 @@
                 setTimeout(() => layer.style.display = 'none', 500);
             }
         });
+        // Si tarda más de 10 segundos, mostrar error
         setTimeout(() => {
             const layer = document.getElementById('loading-layer');
             if (layer && layer.style.display !== 'none') {
                 const text = document.getElementById('loading-text');
-                text.innerText = "Error de carga. Toca para reintentar.";
+                text.innerText = "Error de conexión. Toca para reintentar.";
                 text.classList.add('text-red-500');
+                text.style.cursor = 'pointer';
                 text.onclick = () => window.location.reload();
             }
-        }, 15000);
+        }, 10000);
     </script>
     <script type="module" src="index.tsx"></script>
 </body>
