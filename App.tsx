@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Bird, Plus, ChevronLeft, Trash2, LogOut, 
-  TrendingUp, Activity, Calculator, X, ChevronDown
+  TrendingUp, Activity, Calculator, X, ChevronDown,
+  Eye, EyeOff
 } from 'lucide-react';
 import { 
   Hawk, AppView, FoodCategory, FoodPortion, 
@@ -25,6 +26,7 @@ const App: React.FC = () => {
   // Form states
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [hawkName, setHawkName] = useState('');
   const [hawkSpecies, setHawkSpecies] = useState(SPECIES_OPTIONS[0]);
   const [hawkTargetWeight, setHawkTargetWeight] = useState('');
@@ -243,8 +245,29 @@ const App: React.FC = () => {
           <h1 className="text-4xl font-black mb-2 tracking-tight">Falcon Weight <span className="text-emerald-500">PRO</span></h1>
           <p className="text-slate-500 text-[11px] font-black uppercase tracking-[0.4em] mb-12">Professional Falconry Control</p>
           <div className="w-full space-y-4">
-            <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} className="w-full p-5 bg-slate-900/50 border border-slate-800 rounded-2xl outline-none focus:border-emerald-500 transition-all font-medium text-lg" />
-            <input type="password" placeholder="Contraseña" value={password} onChange={e => setPassword(e.target.value)} className="w-full p-5 bg-slate-900/50 border border-slate-800 rounded-2xl outline-none focus:border-emerald-500 transition-all font-medium text-lg" />
+            <input 
+              type="email" 
+              placeholder="Email" 
+              value={email} 
+              onChange={e => setEmail(e.target.value)} 
+              className="w-full p-5 bg-slate-900/50 border border-slate-800 rounded-2xl outline-none focus:border-emerald-500 transition-all font-medium text-lg" 
+            />
+            <div className="relative">
+              <input 
+                type={showPassword ? "text" : "password"} 
+                placeholder="Contraseña" 
+                value={password} 
+                onChange={e => setPassword(e.target.value)} 
+                className="w-full p-5 pr-14 bg-slate-900/50 border border-slate-800 rounded-2xl outline-none focus:border-emerald-500 transition-all font-medium text-lg" 
+              />
+              <button 
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-emerald-500 transition-colors"
+              >
+                {showPassword ? <EyeOff size={24} /> : <Eye size={24} />}
+              </button>
+            </div>
             <button onClick={() => handleAuth(true)} className="w-full py-5 bg-emerald-500 text-white font-black rounded-2xl active:scale-[0.98] transition-all shadow-xl shadow-emerald-500/10 text-xl">ENTRAR AL SISTEMA</button>
             <button onClick={() => handleAuth(false)} className="w-full py-2 text-slate-500 text-[11px] font-black uppercase tracking-widest mt-6 hover:text-emerald-400 transition-colors">Solicitar Registro</button>
           </div>
