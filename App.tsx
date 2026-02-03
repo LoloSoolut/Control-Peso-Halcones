@@ -36,7 +36,7 @@ const App: React.FC = () => {
   , [hawks, selectedHawkId]);
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (session) {
         setUser(session.user);
         loadData(session.user.id);
@@ -44,9 +44,10 @@ const App: React.FC = () => {
       } else {
         setUser(null);
         setView('AUTH');
-        setLoading(false);
+        setHawks([]);
       }
-      setTimeout(() => window.dispatchEvent(new CustomEvent('app-ready')), 300);
+      setLoading(false);
+      window.dispatchEvent(new CustomEvent('app-ready'));
     });
     return () => subscription.unsubscribe();
   }, []);
@@ -55,7 +56,6 @@ const App: React.FC = () => {
     if (IS_MOCK_MODE) {
       const local = localStorage.getItem(`falcon_db_${userId}`);
       if (local) setHawks(JSON.parse(local));
-      setLoading(false);
       return;
     }
 
@@ -85,10 +85,13 @@ const App: React.FC = () => {
       
       setHawks(formattedHawks);
     } catch (e) {
-      console.error("Error fetching from Supabase:", e);
-    } finally {
-      setLoading(false);
+      console.error("Error loading data:", e);
     }
+  };
+
+  const saveDataLocally = (newHawks: Hawk[]) => {
+    setHawks(newHawks);
+    if (user) localStorage.setItem(`falcon_db_${user.id}`, JSON.stringify(newHawks));
   };
 
   const handleAuth = async (isLogin: boolean) => {
@@ -100,11 +103,9 @@ const App: React.FC = () => {
       } else {
         const { error } = await supabase.auth.signUp({ email, password });
         if (error) throw error;
-        alert("¡Cuenta creada! Revisa tu email o intenta entrar.");
       }
     } catch (e: any) {
-      alert(e.message || "Error de autenticación");
-    } finally {
+      alert(e.message || "Error al procesar solicitud");
       setLoading(false);
     }
   };
@@ -112,16 +113,31 @@ const App: React.FC = () => {
   const addHawk = async () => {
     if (!hawkName || !hawkTargetWeight || !user) return;
     setLoading(true);
+    
+    if (IS_MOCK_MODE) {
+      const newHawk: Hawk = {
+        id: Math.random().toString(36).substr(2, 9),
+        name: hawkName,
+        species: hawkSpecies || 'Desconocida',
+        targetWeight: parseInt(hawkTargetWeight),
+        entries: []
+      };
+      saveDataLocally([...hawks, newHawk]);
+      setHawkName(''); setHawkSpecies(''); setHawkTargetWeight('');
+      setView('DASHBOARD');
+      setLoading(false);
+      return;
+    }
+
     try {
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('hawks')
         .insert([{ 
           name: hawkName, 
           species: hawkSpecies, 
           target_weight: parseInt(hawkTargetWeight),
           user_id: user.id 
-        }])
-        .select().single();
+        }]);
       
       if (error) throw error;
       await loadData(user.id);
@@ -136,6 +152,11 @@ const App: React.FC = () => {
 
   const deleteHawkItem = async (id: string) => {
     if (!confirm('¿Eliminar este halcón permanentemente?')) return;
+    if (IS_MOCK_MODE) {
+      saveDataLocally(hawks.filter(h => h.id !== id));
+      setView('DASHBOARD');
+      return;
+    }
     await supabase.from('hawks').delete().eq('id', id);
     await loadData(user.id);
     setView('DASHBOARD');
@@ -149,6 +170,21 @@ const App: React.FC = () => {
       const w = FOOD_WEIGHT_MAP[curr.category][curr.portion] || 0;
       return acc + (w * curr.quantity);
     }, 0);
+
+    if (IS_MOCK_MODE) {
+      const newEntry: DailyEntry = {
+        id: Math.random().toString(),
+        date: new Date().toISOString(),
+        weightBefore: parseFloat(weightBefore),
+        totalFoodWeight,
+        foodSelections: [...tempSelections]
+      };
+      const updatedHawks = hawks.map(h => h.id === selectedHawkId ? { ...h, entries: [newEntry, ...h.entries] } : h);
+      saveDataLocally(updatedHawks);
+      setWeightBefore(''); setTempSelections([]); setView('HAWK_DETAILS');
+      setLoading(false);
+      return;
+    }
 
     try {
       const { data: entryData, error: entryErr } = await supabase
@@ -181,20 +217,6 @@ const App: React.FC = () => {
     }
   };
 
-  const calculatePrediction = (hawk: Hawk): number | undefined => {
-    if (!hawk.entries || hawk.entries.length < 3) return undefined;
-    const sorted = [...hawk.entries].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-    let losses: number[] = [];
-    for(let i = 0; i < sorted.length - 1; i++) {
-      const loss = (sorted[i].weightBefore + sorted[i].totalFoodWeight) - sorted[i+1].weightBefore;
-      if (loss > 0) losses.push(loss);
-    }
-    if (losses.length === 0) return undefined;
-    const avgLoss = losses.reduce((a, b) => a + b, 0) / losses.length;
-    const last = sorted[sorted.length - 1];
-    return Math.round((last.weightBefore + last.totalFoodWeight) - avgLoss);
-  };
-
   const chartData = useMemo(() => {
     if (!selectedHawk) return [];
     return [...selectedHawk.entries].reverse().slice(-7).map(e => ({
@@ -202,8 +224,6 @@ const App: React.FC = () => {
       peso: e.weightBefore
     }));
   }, [selectedHawk]);
-
-  const prediction = useMemo(() => selectedHawk ? calculatePrediction(selectedHawk) : null, [selectedHawk]);
 
   return (
     <div className="flex-1 flex flex-col max-w-md mx-auto bg-[#020617] text-slate-100 overflow-hidden shadow-2xl relative">
@@ -221,11 +241,12 @@ const App: React.FC = () => {
           <h1 className="text-3xl font-black mb-1 tracking-tight">Falcon Weight <span className="text-emerald-500">PRO</span></h1>
           <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.3em] mb-12">Elite Falconry Control</p>
           <div className="w-full space-y-3">
-            <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} className="w-full p-4 bg-slate-900 border border-slate-800 rounded-2xl outline-none focus:border-emerald-500 transition-all font-medium" />
-            <input type="password" placeholder="Contraseña" value={password} onChange={e => setPassword(e.target.value)} className="w-full p-4 bg-slate-900 border border-slate-800 rounded-2xl outline-none focus:border-emerald-500 transition-all font-medium" />
-            <button onClick={() => handleAuth(true)} className="w-full py-4 bg-emerald-500 text-white font-black rounded-2xl active:scale-95 transition-all shadow-xl shadow-emerald-500/10">INICIAR SESIÓN</button>
+            <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} className="w-full p-4 bg-slate-900 border border-slate-800 rounded-2xl outline-none focus:border-emerald-500 transition-all" />
+            <input type="password" placeholder="Contraseña" value={password} onChange={e => setPassword(e.target.value)} className="w-full p-4 bg-slate-900 border border-slate-800 rounded-2xl outline-none focus:border-emerald-500 transition-all" />
+            <button onClick={() => handleAuth(true)} className="w-full py-4 bg-emerald-500 text-white font-black rounded-2xl active:scale-95 transition-all shadow-xl shadow-emerald-500/10">ENTRAR</button>
             <button onClick={() => handleAuth(false)} className="w-full py-2 text-slate-500 text-[10px] font-black uppercase tracking-widest mt-4">Crear nueva cuenta</button>
           </div>
+          {IS_MOCK_MODE && <p className="mt-8 text-[9px] text-slate-600 uppercase font-black tracking-widest bg-slate-900/50 px-3 py-1 rounded-full border border-slate-800">Modo Demo (Persistencia Local)</p>}
         </div>
       )}
 
@@ -255,9 +276,7 @@ const App: React.FC = () => {
             ))}
             {hawks.length === 0 && (
               <div className="text-center py-20">
-                <div className="w-16 h-16 bg-slate-900 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Bird className="text-slate-700 w-8 h-8" />
-                </div>
+                <Bird className="text-slate-800 w-12 h-12 mx-auto mb-4 opacity-20" />
                 <p className="text-slate-600 font-bold text-sm">Sin halcones registrados</p>
               </div>
             )}
@@ -280,22 +299,12 @@ const App: React.FC = () => {
           <main className="flex-1 overflow-y-auto p-4 space-y-4 no-scrollbar pb-32">
             <div className="grid grid-cols-2 gap-3">
               <div className="bg-emerald-500 p-5 rounded-3xl shadow-xl shadow-emerald-500/5">
-                <p className="text-[10px] font-black text-emerald-900 uppercase tracking-widest mb-1">En Ayunas</p>
+                <p className="text-[10px] font-black text-emerald-900 uppercase tracking-widest mb-1">Último Peso</p>
                 <p className="text-3xl font-black">{selectedHawk.entries[0]?.weightBefore || '--'}<span className="text-sm font-bold opacity-60 ml-1">g</span></p>
               </div>
               <div className="bg-slate-900 border border-slate-800 p-5 rounded-3xl">
                 <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Vuelo</p>
                 <p className="text-3xl font-black">{selectedHawk.targetWeight}<span className="text-sm font-bold text-slate-700 ml-1">g</span></p>
-              </div>
-            </div>
-
-            <div className={`p-4 rounded-3xl border ${prediction ? 'bg-emerald-500/5 border-emerald-500/20' : 'bg-slate-900 border-slate-800'} flex items-center gap-4`}>
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${prediction ? 'bg-emerald-500 text-white' : 'bg-slate-800 text-slate-600'}`}>
-                <Calculator size={20}/>
-              </div>
-              <div>
-                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Mañana Pesará (Est.)</p>
-                <p className="font-black text-lg">{prediction ? `${prediction}g` : 'Faltan datos...'}</p>
               </div>
             </div>
 
@@ -317,18 +326,14 @@ const App: React.FC = () => {
             </div>
 
             <div className="space-y-3">
-              <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest ml-2">Historial Reciente</p>
               {selectedHawk.entries.map(e => (
                 <div key={e.id} className="bg-slate-900/50 p-4 rounded-2xl flex justify-between items-center border border-slate-800/30">
                   <div className="flex flex-col">
                     <span className="text-xs font-bold capitalize">{new Date(e.date).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' })}</span>
-                    <span className="text-[9px] font-black text-slate-500 uppercase">Controlado</span>
                   </div>
-                  <div className="flex items-center gap-4">
-                    <div className="text-right">
-                      <p className="text-xs font-black text-emerald-500">+{e.totalFoodWeight}g</p>
-                      <p className="text-[10px] font-bold text-slate-500">{e.weightBefore}g base</p>
-                    </div>
+                  <div className="text-right">
+                    <p className="text-xs font-black text-emerald-500">+{e.totalFoodWeight}g</p>
+                    <p className="text-[10px] font-bold text-slate-500">{e.weightBefore}g base</p>
                   </div>
                 </div>
               ))}
@@ -350,43 +355,22 @@ const App: React.FC = () => {
           </header>
           <main className="flex-1 overflow-y-auto p-6 space-y-8 no-scrollbar pb-10">
             <div className="space-y-3 text-center">
-              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Peso Actual en Ayunas (Gramos)</label>
+              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Peso Actual (Gramos)</label>
               <input value={weightBefore} onChange={e => setWeightBefore(e.target.value)} type="number" placeholder="000" className="w-full p-8 bg-slate-900 border border-emerald-500/20 rounded-3xl font-black text-center text-5xl outline-none focus:border-emerald-500 transition-all" />
             </div>
             
             <div className="space-y-4">
               <div className="flex justify-between items-center px-2">
-                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Calculadora de Ceba</p>
-                <p className="text-emerald-500 font-black text-xl">+{tempSelections.reduce((a,c)=>a+((FOOD_WEIGHT_MAP[c.category][c.portion]||0)*c.quantity),0)}<span className="text-xs ml-0.5">g</span></p>
+                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Cebado</p>
+                <p className="text-emerald-500 font-black text-xl">+{tempSelections.reduce((a,c)=>a+((FOOD_WEIGHT_MAP[c.category][c.portion]||0)*c.quantity),0)}g</p>
               </div>
-              
               <div className="grid grid-cols-2 gap-2">
-                <button onClick={() => setTempSelections([...tempSelections, {id: Math.random().toString(), category: 'Pollito', portion: 'Con Vitelo', quantity: 1}])} className="p-4 bg-slate-900 border border-slate-800 rounded-2xl text-[10px] font-black uppercase tracking-tighter active:bg-emerald-500 transition-all">POLLITO C/V (25g)</button>
-                <button onClick={() => setTempSelections([...tempSelections, {id: Math.random().toString(), category: 'Pollito', portion: 'Sin Vitelo', quantity: 1}])} className="p-4 bg-slate-900 border border-slate-800 rounded-2xl text-[10px] font-black uppercase tracking-tighter active:bg-emerald-500 transition-all">POLLITO S/V (20g)</button>
-              </div>
-
-              {['Paloma', 'Codorniz', 'Perdiz'].map(cat => (
-                <div key={cat} className="grid grid-cols-3 gap-2">
-                  <button onClick={() => setTempSelections([...tempSelections, {id: Math.random().toString(), category: cat as FoodCategory, portion: 'Pecho', quantity: 1}])} className="p-3 bg-slate-900/50 border border-slate-800 rounded-2xl text-[9px] font-black uppercase active:bg-emerald-500 transition-all">{cat} P</button>
-                  <button onClick={() => setTempSelections([...tempSelections, {id: Math.random().toString(), category: cat as FoodCategory, portion: 'Pata', quantity: 1}])} className="p-3 bg-slate-900/50 border border-slate-800 rounded-2xl text-[9px] font-black uppercase active:bg-emerald-500 transition-all">{cat} PT</button>
-                  <button onClick={() => setTempSelections([...tempSelections, {id: Math.random().toString(), category: cat as FoodCategory, portion: 'Entera', quantity: 1}])} className="p-3 bg-slate-900/50 border border-slate-800 rounded-2xl text-[9px] font-black uppercase active:bg-emerald-500 transition-all">{cat} E</button>
-                </div>
-              ))}
-
-              <div className="space-y-1">
-                {tempSelections.map(s => (
-                  <div key={s.id} className="flex justify-between items-center bg-emerald-500/10 p-3 rounded-xl border border-emerald-500/20">
-                    <span className="text-[10px] font-black uppercase">{s.category} ({s.portion})</span>
-                    <button onClick={() => setTempSelections(tempSelections.filter(x => x.id !== s.id))} className="text-red-500"><X size={16}/></button>
-                  </div>
-                ))}
-                {tempSelections.length > 0 && (
-                  <button onClick={() => setTempSelections([])} className="w-full py-2 text-[9px] font-black text-slate-600 uppercase tracking-widest">Limpiar Cesta</button>
-                )}
+                <button onClick={() => setTempSelections([...tempSelections, {id: Math.random().toString(), category: 'Pollito', portion: 'Con Vitelo', quantity: 1}])} className="p-4 bg-slate-900 border border-slate-800 rounded-2xl text-[10px] font-black uppercase active:bg-emerald-500 transition-all">POLLITO C/V (25g)</button>
+                <button onClick={() => setTempSelections([...tempSelections, {id: Math.random().toString(), category: 'Pollito', portion: 'Sin Vitelo', quantity: 1}])} className="p-4 bg-slate-900 border border-slate-800 rounded-2xl text-[10px] font-black uppercase active:bg-emerald-500 transition-all">POLLITO S/V (20g)</button>
               </div>
             </div>
 
-            <button onClick={saveEntry} className="w-full py-5 bg-emerald-500 text-white font-black rounded-3xl shadow-xl shadow-emerald-500/20 active:scale-95 transition-all">FINALIZAR Y GUARDAR</button>
+            <button onClick={saveEntry} className="w-full py-5 bg-emerald-500 text-white font-black rounded-3xl shadow-xl shadow-emerald-500/20 active:scale-95 transition-all">GUARDAR PESADA</button>
           </main>
         </>
       )}
@@ -395,21 +379,12 @@ const App: React.FC = () => {
         <>
           <header className="p-6 flex items-center gap-4">
             <button onClick={() => setView('DASHBOARD')} className="p-2 bg-slate-900 rounded-xl"><ChevronLeft size={20}/></button>
-            <h2 className="font-black text-xl">Registrar Nuevo</h2>
+            <h2 className="font-black text-xl">Registrar Halcón</h2>
           </header>
           <main className="p-6 space-y-5">
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-2">Nombre del Halcón</label>
-              <input value={hawkName} onChange={e => setHawkName(e.target.value)} placeholder="Ej: Rayo" className="w-full p-4 bg-slate-900 border border-slate-800 rounded-2xl font-bold outline-none focus:border-emerald-500" />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-2">Especie / Línea</label>
-              <input value={hawkSpecies} onChange={e => setHawkSpecies(e.target.value)} placeholder="Ej: Gerifalte x Peregrino" className="w-full p-4 bg-slate-900 border border-slate-800 rounded-2xl font-bold outline-none focus:border-emerald-500" />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-2">Peso de Vuelo (Gramos)</label>
-              <input value={hawkTargetWeight} onChange={e => setHawkTargetWeight(e.target.value)} type="number" placeholder="Ej: 850" className="w-full p-4 bg-slate-900 border border-slate-800 rounded-2xl font-bold text-emerald-500 outline-none focus:border-emerald-500" />
-            </div>
+            <input value={hawkName} onChange={e => setHawkName(e.target.value)} placeholder="Nombre del Halcón" className="w-full p-4 bg-slate-900 border border-slate-800 rounded-2xl font-bold outline-none focus:border-emerald-500" />
+            <input value={hawkSpecies} onChange={e => setHawkSpecies(e.target.value)} placeholder="Especie / Línea" className="w-full p-4 bg-slate-900 border border-slate-800 rounded-2xl font-bold outline-none focus:border-emerald-500" />
+            <input value={hawkTargetWeight} onChange={e => setHawkTargetWeight(e.target.value)} type="number" placeholder="Peso de Vuelo (g)" className="w-full p-4 bg-slate-900 border border-slate-800 rounded-2xl font-bold text-emerald-500 outline-none focus:border-emerald-500" />
             <button onClick={addHawk} className="w-full py-5 bg-emerald-500 text-white font-black rounded-3xl shadow-xl mt-4">GUARDAR EN FALCON PRO</button>
           </main>
         </>

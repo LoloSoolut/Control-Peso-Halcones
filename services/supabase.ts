@@ -1,4 +1,3 @@
-
 import { createClient } from '@supabase/supabase-js';
 
 const getEnv = (key: string): string => {
@@ -10,7 +9,7 @@ const getEnv = (key: string): string => {
     }
     // @ts-ignore
     if (import.meta && import.meta.env && import.meta.env[key]) {
-      // @ts-ignore - Fix for line 11 error: Property 'env' does not exist on type 'ImportMeta'
+      // @ts-ignore
       return import.meta.env[key];
     }
   } catch (e) {}
@@ -20,24 +19,40 @@ const getEnv = (key: string): string => {
 const supabaseUrl = getEnv('SUPABASE_URL');
 const supabaseKey = getEnv('SUPABASE_ANON_KEY');
 
+// Si no hay claves, activamos modo MOCK para que la app funcione igual
 const isMock = !supabaseUrl || supabaseUrl === '' || supabaseUrl.includes('placeholder');
 
 class MockAuth {
+  private callbacks: any[] = [];
+
   onAuthStateChange(cb: any) {
+    this.callbacks.push(cb);
     const session = JSON.parse(localStorage.getItem('falcon_session') || 'null');
-    const timer = setTimeout(() => cb('INITIAL_SESSION', session), 200);
-    return { data: { subscription: { unsubscribe: () => clearTimeout(timer) } } };
+    // Notificar estado inicial
+    setTimeout(() => cb('SIGNED_IN', session), 100);
+    return { data: { subscription: { unsubscribe: () => {
+      this.callbacks = this.callbacks.filter(c => c !== cb);
+    } } } };
   }
+
+  private notify(event: string, session: any) {
+    this.callbacks.forEach(cb => cb(event, session));
+  }
+
   async signInWithPassword({ email }: any) {
-    const session = { user: { id: 'mock-user', email }, access_token: 'mock-token' };
+    const session = { user: { id: 'mock-user-123', email }, access_token: 'mock-token' };
     localStorage.setItem('falcon_session', JSON.stringify(session));
-    window.location.reload();
+    this.notify('SIGNED_IN', session);
     return { data: { session }, error: null };
   }
-  async signUp({ email }: any) { return this.signInWithPassword({ email }); }
+
+  async signUp({ email }: any) {
+    return this.signInWithPassword({ email });
+  }
+
   async signOut() {
     localStorage.removeItem('falcon_session');
-    window.location.reload();
+    this.notify('SIGNED_OUT', null);
     return { error: null };
   }
 }

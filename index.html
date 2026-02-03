@@ -63,6 +63,7 @@
         <p id="loading-text" class="text-slate-500 font-bold text-[10px] tracking-[0.2em] uppercase mt-4">Falcon Weight PRO</p>
     </div>
     <div id="root"></div>
+    <script type="module" src="index.tsx"></script>
     <script type="module">
         window.addEventListener('app-ready', () => {
             const layer = document.getElementById('loading-layer');
@@ -71,18 +72,15 @@
                 setTimeout(() => layer.style.display = 'none', 500);
             }
         });
-        // Si tarda más de 10 segundos, mostrar error
         setTimeout(() => {
             const layer = document.getElementById('loading-layer');
             if (layer && layer.style.display !== 'none') {
                 const text = document.getElementById('loading-text');
-                text.innerText = "Error de conexión. Toca para reintentar.";
+                text.innerText = "Error de carga. Reintentando...";
                 text.classList.add('text-red-500');
-                text.style.cursor = 'pointer';
-                text.onclick = () => window.location.reload();
+                setTimeout(() => window.location.reload(), 2000);
             }
-        }, 10000);
+        }, 12000);
     </script>
-    <script type="module" src="index.tsx"></script>
 </body>
 </html>
