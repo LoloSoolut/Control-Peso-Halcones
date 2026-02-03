@@ -1,6 +1,6 @@
 {
-  "name": "Control Peso Halcones",
-  "description": "Una aplicación especializada para el seguimiento diario del peso y alimentación de halcones, diseñada para cetreros profesionales.",
+  "name": "Falcon Weight PRO",
+  "description": "Control your falcons. Aplicación especializada para el seguimiento diario del peso y alimentación de halcones.",
   "requestFramePermissions": [
     "camera"
   ]
