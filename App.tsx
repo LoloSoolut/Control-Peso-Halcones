@@ -1,8 +1,9 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Bird, Plus, ChevronLeft, Trash2, LogOut, 
   TrendingUp, Eye, EyeOff, Utensils, Calendar, Target,
-  ChevronRight, Info, Activity, Minus, Check, X
+  ChevronRight, Info, Activity, Minus, Check, X, Mail, ShieldCheck
 } from 'lucide-react';
 import { 
   Hawk, AppView, DailyEntry, FoodSelection, FoodCategory, FoodPortion, FOOD_WEIGHT_MAP 
@@ -34,6 +35,7 @@ const App: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   // New Hawk States
   const [hawkName, setHawkName] = useState('');
@@ -106,18 +108,37 @@ const App: React.FC = () => {
     if (user) localStorage.setItem(`falcon_db_${user.id}`, JSON.stringify(newHawks));
   };
 
-  const handleAuth = async (isLogin: boolean) => {
+  const handleAuth = async (action: 'LOGIN' | 'SIGNUP' | 'RECOVER') => {
     setLoading(true);
+    setAuthError(null);
     try {
-      if (isLogin) {
+      if (action === 'LOGIN') {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
-      } else {
+      } else if (action === 'SIGNUP') {
         const { error } = await supabase.auth.signUp({ email, password });
-        if (error) throw error;
+        if (error) {
+          if (error.message.includes('already registered') || error.status === 400) {
+            throw new Error("Este email ya está registrado. Por favor, inicia sesión.");
+          }
+          throw error;
+        }
+        alert("¡Cuenta creada con éxito!");
+      } else if (action === 'RECOVER') {
+        // En un entorno real, Supabase enviaría un link de reseteo.
+        // Según el requerimiento, informamos del envío a lologc@msn.com
+        if (!email) throw new Error("Introduce tu email para recuperar.");
+        
+        if (!IS_MOCK_MODE) {
+          await supabase.auth.resetPasswordForEmail(email);
+        }
+        
+        alert(`Se ha enviado una solicitud de recuperación. Por seguridad, un administrador revisará la solicitud y contactará desde lologc@msn.com.`);
+        setView('AUTH');
       }
     } catch (e: any) {
-      alert(e.message || "Error de autenticación");
+      setAuthError(e.message || "Error de operación");
+    } finally {
       setLoading(false);
     }
   };
@@ -293,22 +314,78 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {view === 'AUTH' && (
-        <div className="flex-1 flex flex-col p-10 justify-center items-center text-center">
-          <div className="w-24 h-24 bg-red-600 rounded-[2rem] flex items-center justify-center mb-8 shadow-2xl shadow-red-600/40 transform -rotate-6">
-            <Bird className="w-14 h-14 text-white" />
+      {(view === 'AUTH' || view === 'SIGNUP' || view === 'RECOVER') && (
+        <div className="flex-1 flex flex-col p-8 justify-center items-center text-center max-w-sm mx-auto w-full">
+          <div className="w-20 h-20 bg-red-600 rounded-[1.8rem] flex items-center justify-center mb-6 shadow-2xl shadow-red-600/40 transform -rotate-6">
+            <Bird className="w-10 h-10 text-white" />
           </div>
-          <h1 className="text-5xl font-black mb-1 tracking-tighter uppercase italic">Falcon <span className="text-red-600">PRO</span></h1>
-          <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.5em] mb-12">CONTROL YOUR FALCONS</p>
-          <div className="w-full max-w-xs space-y-3">
-            <input type="email" placeholder="EMAIL" value={email} onChange={e => setEmail(e.target.value)} className="w-full p-5 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-red-600 font-bold text-center" />
-            <div className="relative">
-              <input type={showPassword ? "text" : "password"} placeholder="PASSWORD" value={password} onChange={e => setPassword(e.target.value)} className="w-full p-5 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-red-600 font-bold text-center" />
-              <button onClick={() => setShowPassword(!showPassword)} className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-300">
-                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-              </button>
+          <h1 className="text-4xl font-black mb-1 tracking-tighter uppercase italic">Falcon <span className="text-red-600">PRO</span></h1>
+          <p className="text-slate-400 text-[9px] font-black uppercase tracking-[0.5em] mb-10">CONTROL YOUR FALCONS</p>
+          
+          <div className="w-full space-y-4">
+            <div className="space-y-3">
+              <div className="relative">
+                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                <input 
+                  type="email" 
+                  placeholder="EMAIL" 
+                  value={email} 
+                  onChange={e => setEmail(e.target.value)} 
+                  className="w-full pl-12 pr-5 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-red-600 font-bold" 
+                />
+              </div>
+
+              {view !== 'RECOVER' && (
+                <div className="relative">
+                  <ShieldCheck className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                  <input 
+                    type={showPassword ? "text" : "password"} 
+                    placeholder="CONTRASEÑA" 
+                    value={password} 
+                    onChange={e => setPassword(e.target.value)} 
+                    className="w-full pl-12 pr-12 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-red-600 font-bold" 
+                  />
+                  <button onClick={() => setShowPassword(!showPassword)} className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-300">
+                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
+              )}
             </div>
-            <button onClick={() => handleAuth(true)} className="w-full py-5 bg-red-600 text-white font-black rounded-2xl shadow-xl shadow-red-600/20 text-lg tracking-widest uppercase border-b-4 border-red-800 active:translate-y-1 transition-all">Entrar</button>
+
+            {authError && (
+              <p className="text-[10px] font-black text-red-600 uppercase bg-red-50 p-3 rounded-xl border border-red-100">
+                {authError}
+              </p>
+            )}
+
+            <div className="pt-2">
+              {view === 'AUTH' && (
+                <div className="space-y-4">
+                  <button onClick={() => handleAuth('LOGIN')} className="w-full py-5 bg-red-600 text-white font-black rounded-2xl shadow-xl shadow-red-600/20 text-lg tracking-widest uppercase border-b-4 border-red-800 active:translate-y-1 transition-all">Entrar</button>
+                  <div className="flex flex-col gap-3">
+                    <button onClick={() => setView('SIGNUP')} className="text-slate-400 font-black text-[10px] uppercase tracking-widest hover:text-slate-900 transition-colors">¿No tienes cuenta? Regístrate</button>
+                    <button onClick={() => setView('RECOVER')} className="text-red-600/60 font-black text-[10px] uppercase tracking-widest hover:text-red-600 transition-colors italic">¿Olvidaste tu contraseña?</button>
+                  </div>
+                </div>
+              )}
+
+              {view === 'SIGNUP' && (
+                <div className="space-y-4">
+                  <button onClick={() => handleAuth('SIGNUP')} className="w-full py-5 bg-slate-900 text-white font-black rounded-2xl shadow-xl shadow-slate-900/20 text-lg tracking-widest uppercase border-b-4 border-slate-700 active:translate-y-1 transition-all">Registrarse</button>
+                  <button onClick={() => setView('AUTH')} className="text-slate-400 font-black text-[10px] uppercase tracking-widest hover:text-slate-900 transition-colors">Ya tengo cuenta, volver</button>
+                </div>
+              )}
+
+              {view === 'RECOVER' && (
+                <div className="space-y-4">
+                  <button onClick={() => handleAuth('RECOVER')} className="w-full py-5 bg-red-600 text-white font-black rounded-2xl shadow-xl shadow-red-600/20 text-lg tracking-widest uppercase border-b-4 border-red-800 active:translate-y-1 transition-all">Recuperar acceso</button>
+                  <button onClick={() => setView('AUTH')} className="text-slate-400 font-black text-[10px] uppercase tracking-widest hover:text-slate-900 transition-colors">Volver al inicio</button>
+                  <p className="text-[9px] font-black text-slate-300 uppercase leading-relaxed pt-4 border-t border-slate-50">
+                    Las solicitudes se gestionan vía <span className="text-red-600">lologc@msn.com</span>
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -320,7 +397,7 @@ const App: React.FC = () => {
               <h2 className="text-2xl font-black tracking-tighter uppercase italic">Mis <span className="text-red-600">Halcones</span></h2>
               <div className="flex items-center gap-2 mt-1">
                 <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-                <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">{hawks.length} Unidades Activas</p>
+                <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">{hawks.length} Halcones Activos</p>
               </div>
             </div>
             <button onClick={() => setView('ADD_HAWK')} className="w-14 h-14 bg-red-600 rounded-2xl flex items-center justify-center text-white shadow-xl border-b-4 border-red-800 active:scale-95 transition-all"><Plus size={32}/></button>
