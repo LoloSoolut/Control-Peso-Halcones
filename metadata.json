@@ -1,6 +1,6 @@
 {
   "name": "Falcon Weight PRO",
-  "description": "Control your falcons. Aplicación especializada para el seguimiento diario del peso y alimentación de halcones.",
+  "description": "Control your falcons. Specialized application for daily tracking of falcon weight and feeding.",
   "requestFramePermissions": [
     "camera"
   ]

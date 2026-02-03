@@ -306,6 +306,12 @@ const App: React.FC = () => {
 
   return (
     <div className="flex-1 flex flex-col w-full max-w-4xl mx-auto bg-white text-slate-900 overflow-hidden md:shadow-2xl md:my-4 md:rounded-[2.5rem] relative border-x border-slate-100 font-inter">
+      {IS_MOCK_MODE && (
+        <div className="bg-amber-100 text-amber-800 text-[8px] font-black text-center py-1.5 uppercase tracking-[0.3em] border-b border-amber-200 z-50">
+          Demo Mode: Data saved locally only (Connect Supabase to sync)
+        </div>
+      )}
+      
       {loading && (
         <div className="absolute inset-0 bg-white/80 backdrop-blur-md z-50 flex flex-col items-center justify-center">
           <div className="spinner"></div>
