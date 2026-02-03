@@ -268,7 +268,7 @@ const App: React.FC = () => {
                 {showPassword ? <EyeOff size={24} /> : <Eye size={24} />}
               </button>
             </div>
-            <button onClick={() => handleAuth(true)} className="w-full py-5 bg-red-600 text-white font-black rounded-2xl active:scale-[0.98] transition-all shadow-xl shadow-red-600/10 text-xl tracking-widest">ENTRAR AL SISTEMA</button>
+            <button onClick={() => handleAuth(true)} className="w-full py-5 bg-red-600 text-white font-black rounded-2xl active:scale-[0.98] transition-all shadow-xl shadow-red-600/10 text-xl tracking-widest uppercase">Entrar al Sistema</button>
             <button onClick={() => handleAuth(false)} className="w-full py-2 text-slate-400 text-[11px] font-black uppercase tracking-widest mt-6 hover:text-red-600 transition-colors">Solicitar Registro</button>
           </div>
           {IS_MOCK_MODE && <p className="mt-12 text-[10px] text-slate-400 uppercase font-black tracking-[0.2em] bg-slate-50 px-4 py-2 rounded-full border border-slate-200">Modo Demo Local</p>}
@@ -280,7 +280,7 @@ const App: React.FC = () => {
           <header className="p-8 md:p-10 flex justify-between items-center border-b border-slate-100 bg-white shadow-sm z-10">
             <div>
               <h2 className="text-2xl font-black tracking-tighter uppercase">Falcon Weight <span className="text-red-600">PRO</span></h2>
-              <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest mt-1">{hawks.length} Halcones</p>
+              <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest mt-1">{hawks.length} Halcones en Cámara</p>
             </div>
             <button onClick={() => setView('ADD_HAWK')} className="w-12 h-12 bg-red-600 rounded-2xl flex items-center justify-center shadow-lg shadow-red-600/20 active:scale-90 transition-transform"><Plus size={28} className="text-white"/></button>
           </header>
@@ -297,11 +297,20 @@ const App: React.FC = () => {
                   </div>
                   <div className="text-right">
                     <p className="text-3xl font-black text-slate-900">{h.entries[0]?.weightBefore || '--'}<span className="text-xs text-red-600 ml-1">g</span></p>
-                    <p className="text-[10px] font-bold text-slate-300 uppercase tracking-tighter">Hoy</p>
+                    <p className="text-[10px] font-bold text-slate-300 uppercase tracking-tighter">Último Peso</p>
                   </div>
                 </div>
               ))}
             </div>
+            {hawks.length === 0 && (
+              <div className="text-center py-32 flex flex-col items-center">
+                <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mb-6 opacity-60">
+                  <Bird className="text-slate-300 w-10 h-10" />
+                </div>
+                <p className="text-slate-400 font-black text-lg uppercase tracking-widest">Inicia el plantel</p>
+                <p className="text-slate-300 text-sm mt-2">No hay halcones registrados todavía</p>
+              </div>
+            )}
           </main>
           <footer className="p-6 border-t border-slate-100 flex justify-center bg-white">
             <button onClick={() => supabase.auth.signOut()} className="text-slate-400 font-black text-[11px] flex items-center gap-3 tracking-[0.3em] hover:text-red-600 transition-colors"><LogOut size={16}/> FINALIZAR SESIÓN</button>
@@ -324,21 +333,18 @@ const App: React.FC = () => {
           <main className="flex-1 overflow-y-auto p-6 md:p-10 space-y-6 no-scrollbar pb-32 bg-slate-50/50">
             <div className="grid grid-cols-2 gap-4">
               <div className="bg-red-600 p-7 rounded-[2.5rem] shadow-xl shadow-red-600/10 border-b-4 border-red-800">
-                <p className="text-[11px] font-black text-white uppercase tracking-widest mb-1 opacity-80">Actual</p>
-                <p className="text-4xl font-black text-white">{selectedHawk.entries[0]?.weightBefore || '--'}<span className="text-lg font-bold opacity-60 ml-1">g</span></p>
+                <p className="text-[11px] font-black text-white uppercase tracking-widest mb-1 opacity-80 text-center">Peso Actual</p>
+                <p className="text-4xl font-black text-white text-center">{selectedHawk.entries[0]?.weightBefore || '--'}<span className="text-lg font-bold opacity-60 ml-1">g</span></p>
               </div>
               <div className="bg-white border border-slate-200 p-7 rounded-[2.5rem] shadow-sm border-b-4 border-slate-100">
-                <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1">Vuelo</p>
-                <p className="text-4xl font-black text-slate-900">{selectedHawk.targetWeight}<span className="text-lg font-bold text-slate-300 ml-1">g</span></p>
+                <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1 text-center">Peso Vuelo</p>
+                <p className="text-4xl font-black text-slate-900 text-center">{selectedHawk.targetWeight}<span className="text-lg font-bold text-slate-300 ml-1">g</span></p>
               </div>
             </div>
 
             <div className="bg-white rounded-[2.5rem] p-6 md:p-8 border border-slate-100 shadow-sm">
                <div className="flex justify-between items-center mb-6">
-                  <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Gráfica Peso</h3>
-                  <div className="flex gap-4">
-                    <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-red-600"></div><span className="text-[9px] font-bold text-slate-400 uppercase">Gramos</span></div>
-                  </div>
+                  <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Rendimiento (g)</h3>
                </div>
                <div className="h-64 w-full">
                 <ResponsiveContainer width="100%" height="100%">
@@ -358,10 +364,34 @@ const App: React.FC = () => {
                 </ResponsiveContainer>
               </div>
             </div>
+
+            <div className="space-y-3">
+              <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.3em] ml-4 mb-4">Registro Histórico</p>
+              <div className="grid grid-cols-1 gap-2">
+                {selectedHawk.entries.map(e => (
+                  <div key={e.id} className="bg-white p-5 rounded-3xl flex justify-between items-center border border-slate-100 shadow-sm">
+                    <div className="flex flex-col">
+                      <span className="text-sm font-black text-slate-700">{new Date(e.date).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}</span>
+                      <span className="text-[9px] font-bold text-slate-300 uppercase tracking-tighter">Pesada Controlada</span>
+                    </div>
+                    <div className="flex items-center gap-6">
+                      <div className="text-right">
+                        <p className="text-lg font-black text-red-600">+{e.totalFoodWeight}<span className="text-[10px] ml-0.5">g</span></p>
+                        <p className="text-[10px] font-black text-slate-300 uppercase tracking-tighter">Ceba</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-lg font-black text-slate-800">{e.weightBefore}<span className="text-[10px] ml-0.5">g</span></p>
+                        <p className="text-[10px] font-black text-slate-300 uppercase tracking-tighter">Peso</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </main>
           <div className="absolute bottom-8 left-0 right-0 px-8 flex justify-center pointer-events-none">
             <button onClick={() => setView('ADD_ENTRY')} className="w-full max-w-sm py-6 bg-red-600 text-white font-black rounded-3xl shadow-[0_20px_50px_rgba(220,38,38,0.2)] flex items-center justify-center gap-3 active:scale-95 transition-all pointer-events-auto text-lg uppercase tracking-widest">
-              <TrendingUp size={24} className="text-white"/> NUEVA PESADA
+              <TrendingUp size={24} className="text-white"/> Nueva Pesada
             </button>
           </div>
         </>
@@ -375,7 +405,7 @@ const App: React.FC = () => {
           </header>
           <main className="flex-1 overflow-y-auto p-8 md:p-10 space-y-10 no-scrollbar pb-10 bg-slate-50/50">
             <div className="space-y-4 text-center">
-              <label className="text-[11px] font-black text-slate-400 uppercase tracking-[0.4em]">Peso (g)</label>
+              <label className="text-[11px] font-black text-slate-400 uppercase tracking-[0.4em]">Peso del Halcón (Gramos)</label>
               <input 
                 value={weightBefore} 
                 onChange={e => setWeightBefore(e.target.value)} 
@@ -384,7 +414,7 @@ const App: React.FC = () => {
                 className="w-full p-10 bg-white border border-slate-200 rounded-[2.5rem] font-black text-center text-7xl outline-none focus:border-red-600 transition-all shadow-sm text-slate-900 border-b-8 border-slate-200" 
               />
             </div>
-            <button onClick={saveEntry} className="w-full py-6 bg-red-600 text-white font-black rounded-[2rem] shadow-2xl shadow-red-600/20 active:scale-95 transition-all text-xl mt-6 uppercase tracking-widest border-b-4 border-red-800">GUARDAR REGISTRO</button>
+            <button onClick={saveEntry} className="w-full py-6 bg-red-600 text-white font-black rounded-[2rem] shadow-2xl shadow-red-600/20 active:scale-95 transition-all text-xl mt-6 uppercase tracking-widest border-b-4 border-red-800">Guardar Registro</button>
           </main>
         </>
       )}
@@ -410,7 +440,7 @@ const App: React.FC = () => {
               <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-4">Peso Objetivo (g)</label>
               <input value={hawkTargetWeight} onChange={e => setHawkTargetWeight(e.target.value)} type="number" placeholder="Ej: 850" className="w-full p-5 bg-white border border-slate-200 rounded-2xl font-bold text-red-600 outline-none focus:border-red-600 text-lg transition-colors shadow-sm" />
             </div>
-            <button onClick={addHawk} className="w-full py-6 bg-red-600 text-white font-black rounded-[2rem] shadow-2xl mt-8 text-xl active:scale-[0.98] transition-all uppercase tracking-widest border-b-4 border-red-800">REGISTRAR</button>
+            <button onClick={addHawk} className="w-full py-6 bg-red-600 text-white font-black rounded-[2rem] shadow-2xl mt-8 text-xl active:scale-[0.98] transition-all uppercase tracking-widest border-b-4 border-red-800 shadow-red-600/20">Registrar en Plantel</button>
           </main>
         </>
       )}
