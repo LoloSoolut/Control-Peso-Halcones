@@ -9,8 +9,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
     "lucide-react": "^0.454.0",
     "recharts": "^2.12.7",
     "@supabase/supabase-js": "^2.45.4"
@@ -18,8 +18,8 @@
   "devDependencies": {
     "vite": "^5.4.0",
     "typescript": "^5.5.0",
-    "@types/react": "^18.3.1",
-    "@types/react-dom": "^18.3.1",
+    "@types/react": "18.3.1",
+    "@types/react-dom": "18.3.1",
     "@vitejs/plugin-react": "^4.3.1"
   }
 }
