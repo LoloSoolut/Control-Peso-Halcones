@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Bird, Plus, ChevronLeft, Trash2, LogOut, 
   TrendingUp, Eye, EyeOff, Utensils, Calendar, Target,
-  ChevronRight, Info, Activity, Minus, Check, X, Mail, ShieldCheck
+  ChevronRight, Info, Activity, Minus, Check, X, Mail, ShieldCheck, Loader2
 } from 'lucide-react';
 import { 
   Hawk, AppView, DailyEntry, FoodSelection, FoodCategory, FoodPortion, FOOD_WEIGHT_MAP 
@@ -28,7 +28,10 @@ const App: React.FC = () => {
   const [user, setUser] = useState<any>(null);
   const [hawks, setHawks] = useState<Hawk[]>([]);
   const [selectedHawkId, setSelectedHawkId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  
+  // States para diferentes niveles de carga
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(false);
 
   // Auth States
   const [email, setEmail] = useState('');
@@ -55,18 +58,27 @@ const App: React.FC = () => {
   , [hawks, selectedHawkId]);
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    // Timeout de seguridad: si Supabase no responde en 5s, quitamos el loading
+    const safetyTimer = setTimeout(() => {
+      if (initialLoading) {
+        setInitialLoading(false);
+        window.dispatchEvent(new CustomEvent('app-ready'));
+      }
+    }, 5000);
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log("Auth Event:", event);
       if (session) {
         setUser(session.user);
-        loadData(session.user.id);
+        await loadData(session.user.id);
         setView('DASHBOARD');
       } else {
         setUser(null);
-        setView('AUTH');
+        if (view !== 'SIGNUP' && view !== 'RECOVER') setView('AUTH');
         setHawks([]);
       }
-      setLoading(false);
+      setInitialLoading(false);
+      clearTimeout(safetyTimer);
       window.dispatchEvent(new CustomEvent('app-ready'));
     });
     return () => subscription.unsubscribe();
@@ -110,7 +122,7 @@ const App: React.FC = () => {
   };
 
   const handleAuth = async (action: 'LOGIN' | 'SIGNUP' | 'RECOVER') => {
-    setLoading(true);
+    setActionLoading(true);
     setAuthError(null);
     setAuthSuccessMsg(null);
     try {
@@ -119,24 +131,27 @@ const App: React.FC = () => {
         if (error) throw error;
       } else if (action === 'SIGNUP') {
         if (!email || !password) throw new Error("Email y contraseña requeridos.");
+        if (password.length < 6) throw new Error("La contraseña debe tener al menos 6 caracteres.");
+        
         const { data, error } = await supabase.auth.signUp({ email, password });
         if (error) throw error;
         
         if (data.user && !data.session) {
-          setAuthSuccessMsg("¡Cuenta creada! Por favor, revisa tu email para confirmar tu cuenta antes de entrar.");
+          setAuthSuccessMsg("¡Cuenta creada! Revisa tu email para confirmarla antes de entrar.");
         } else {
-          setAuthSuccessMsg("¡Registro completado con éxito!");
+          setAuthSuccessMsg("¡Registro completado!");
         }
       } else if (action === 'RECOVER') {
-        if (!email) throw new Error("Introduce tu email para recuperar la contraseña.");
+        if (!email) throw new Error("Introduce tu email.");
         const { error } = await supabase.auth.resetPasswordForEmail(email);
         if (error) throw error;
-        setAuthSuccessMsg("Se ha enviado un enlace de recuperación a tu email.");
+        setAuthSuccessMsg("Enlace de recuperación enviado.");
       }
     } catch (e: any) {
+      console.error("Auth Error:", e);
       setAuthError(e.message || "Error en la operación");
     } finally {
-      setLoading(false);
+      setActionLoading(false);
     }
   };
 
@@ -192,7 +207,7 @@ const App: React.FC = () => {
 
   const saveEntry = async () => {
     if (!selectedHawkId || !weightBefore || !user) return;
-    setLoading(true);
+    setActionLoading(true);
     const newWeight = parseFloat(weightBefore);
     const entryData = {
       id: Math.random().toString(),
@@ -206,7 +221,7 @@ const App: React.FC = () => {
       const updatedHawks = hawks.map(h => h.id === selectedHawkId ? { ...h, entries: [entryData, ...h.entries] } : h);
       saveDataLocally(updatedHawks);
       setWeightBefore(''); setCurrentFoodSelections([]); setView('HAWK_DETAILS');
-      setLoading(false);
+      setActionLoading(false);
       return;
     }
 
@@ -221,20 +236,20 @@ const App: React.FC = () => {
       await loadData(user.id);
       setWeightBefore(''); setCurrentFoodSelections([]); setView('HAWK_DETAILS');
     } finally {
-      setLoading(false);
+      setActionLoading(false);
     }
   };
 
   const updateTargetWeight = async () => {
     if (!selectedHawkId || !tempTargetWeight || !user) return;
-    setLoading(true);
+    setActionLoading(true);
     const newWeight = parseFloat(tempTargetWeight);
     
     if (IS_MOCK_MODE) {
       const updatedHawks = hawks.map(h => h.id === selectedHawkId ? { ...h, targetWeight: newWeight } : h);
       saveDataLocally(updatedHawks);
       setIsEditingTarget(false);
-      setLoading(false);
+      setActionLoading(false);
       return;
     }
 
@@ -242,23 +257,21 @@ const App: React.FC = () => {
       await supabase.from('hawks').update({ target_weight: newWeight }).eq('id', selectedHawkId);
       await loadData(user.id);
       setIsEditingTarget(false);
-    } catch (e) {
-      console.error(e);
     } finally {
-      setLoading(false);
+      setActionLoading(false);
     }
   };
 
   const addHawk = async () => {
     if (!hawkName || !hawkTargetWeight || !user) return;
-    setLoading(true);
+    setActionLoading(true);
     const targetW = parseFloat(hawkTargetWeight);
-    const newHawkId = Math.random().toString(36).substr(2, 9);
-    const hawkData: Hawk = { id: newHawkId, name: hawkName, species: hawkSpecies, targetWeight: targetW, entries: [] };
     if (IS_MOCK_MODE) {
+      const newHawkId = Math.random().toString(36).substr(2, 9);
+      const hawkData: Hawk = { id: newHawkId, name: hawkName, species: hawkSpecies, targetWeight: targetW, entries: [] };
       saveDataLocally([...hawks, hawkData]);
       setHawkName(''); setHawkTargetWeight(''); setView('DASHBOARD');
-      setLoading(false);
+      setActionLoading(false);
       return;
     }
     try {
@@ -266,17 +279,17 @@ const App: React.FC = () => {
       await loadData(user.id);
       setHawkName(''); setHawkTargetWeight(''); setView('DASHBOARD');
     } finally {
-      setLoading(false);
+      setActionLoading(false);
     }
   };
 
   const deleteHawkItem = async (id: string) => {
     if (!user) return;
-    setLoading(true);
+    setActionLoading(true);
     if (IS_MOCK_MODE) {
       saveDataLocally(hawks.filter(h => h.id !== id));
       setView('DASHBOARD'); setSelectedHawkId(null);
-      setLoading(false);
+      setActionLoading(false);
       return;
     }
     try {
@@ -284,23 +297,20 @@ const App: React.FC = () => {
       await loadData(user.id);
       setView('DASHBOARD'); setSelectedHawkId(null);
     } finally {
-      setLoading(false);
+      setActionLoading(false);
     }
   };
 
   const chartData = useMemo(() => {
     if (!selectedHawk) return [];
     return [...selectedHawk.entries].reverse().map(e => ({
-      date: new Date(e.date).toLocaleDateString('en-US', { day: 'numeric', month: 'short' }),
+      date: new Date(e.date).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }),
       weight: e.weightBefore,
       food: e.totalFoodWeight
     }));
   }, [selectedHawk]);
 
-  const nextDayPrediction = useMemo(() => {
-    if (!selectedHawk) return null;
-    return calculatePrediction(selectedHawk);
-  }, [selectedHawk]);
+  const isAuthView = view === 'AUTH' || view === 'SIGNUP' || view === 'RECOVER';
 
   return (
     <div className="flex-1 flex flex-col w-full max-w-4xl mx-auto bg-white text-slate-900 overflow-hidden md:shadow-2xl md:my-4 md:rounded-[2.5rem] relative border-x border-slate-100 font-inter">
@@ -310,14 +320,16 @@ const App: React.FC = () => {
         </div>
       )}
       
-      {loading && (
+      {/* El overlay solo se muestra en la carga inicial y si YA estamos logueados para cargar datos */}
+      {initialLoading && !isAuthView && (
         <div className="absolute inset-0 bg-white/80 backdrop-blur-md z-50 flex flex-col items-center justify-center">
           <div className="spinner"></div>
           <p className="mt-4 text-[10px] font-black uppercase tracking-[0.3em] text-red-600">Actualizando Halcones...</p>
         </div>
       )}
 
-      {(view === 'AUTH' || view === 'SIGNUP' || view === 'RECOVER') && (
+      {/* Pantallas de Autenticación */}
+      {isAuthView && (
         <div className="flex-1 flex flex-col p-8 justify-center items-center text-center max-w-sm mx-auto w-full">
           <div className="w-20 h-20 bg-red-600 rounded-[1.8rem] flex items-center justify-center mb-6 shadow-2xl shadow-red-600/40 transform -rotate-6">
             <Bird className="w-10 h-10 text-white" />
@@ -374,7 +386,13 @@ const App: React.FC = () => {
             <div className="pt-2">
               {view === 'AUTH' && (
                 <div className="space-y-4">
-                  <button onClick={() => handleAuth('LOGIN')} className="w-full py-5 bg-red-600 text-white font-black rounded-2xl shadow-xl shadow-red-600/20 text-lg tracking-widest uppercase border-b-4 border-red-800 active:translate-y-1 transition-all">Entrar</button>
+                  <button 
+                    disabled={actionLoading}
+                    onClick={() => handleAuth('LOGIN')} 
+                    className="w-full py-5 bg-red-600 text-white font-black rounded-2xl shadow-xl shadow-red-600/20 text-lg tracking-widest uppercase border-b-4 border-red-800 active:translate-y-1 transition-all flex items-center justify-center gap-2"
+                  >
+                    {actionLoading ? <Loader2 className="animate-spin" size={20} /> : 'Entrar'}
+                  </button>
                   <div className="flex flex-col gap-3">
                     <button onClick={() => { setView('SIGNUP'); setAuthError(null); setAuthSuccessMsg(null); }} className="text-slate-400 font-black text-[10px] uppercase tracking-widest hover:text-slate-900 transition-colors">¿No tienes cuenta? Regístrate</button>
                     <button onClick={() => { setView('RECOVER'); setAuthError(null); setAuthSuccessMsg(null); }} className="text-red-600/60 font-black text-[10px] uppercase tracking-widest hover:text-red-600 transition-colors italic">¿Olvidaste tu contraseña?</button>
@@ -384,14 +402,26 @@ const App: React.FC = () => {
 
               {view === 'SIGNUP' && (
                 <div className="space-y-4">
-                  <button onClick={() => handleAuth('SIGNUP')} className="w-full py-5 bg-slate-900 text-white font-black rounded-2xl shadow-xl shadow-slate-900/20 text-lg tracking-widest uppercase border-b-4 border-slate-700 active:translate-y-1 transition-all">Crear Cuenta</button>
+                  <button 
+                    disabled={actionLoading}
+                    onClick={() => handleAuth('SIGNUP')} 
+                    className="w-full py-5 bg-slate-900 text-white font-black rounded-2xl shadow-xl shadow-slate-900/20 text-lg tracking-widest uppercase border-b-4 border-slate-700 active:translate-y-1 transition-all flex items-center justify-center gap-2"
+                  >
+                    {actionLoading ? <Loader2 className="animate-spin" size={20} /> : 'Crear Cuenta'}
+                  </button>
                   <button onClick={() => { setView('AUTH'); setAuthError(null); setAuthSuccessMsg(null); }} className="text-slate-400 font-black text-[10px] uppercase tracking-widest hover:text-slate-900 transition-colors">Volver al Login</button>
                 </div>
               )}
 
               {view === 'RECOVER' && (
                 <div className="space-y-4">
-                  <button onClick={() => handleAuth('RECOVER')} className="w-full py-5 bg-red-600 text-white font-black rounded-2xl shadow-xl shadow-red-600/20 text-lg tracking-widest uppercase border-b-4 border-red-800 active:translate-y-1 transition-all">Recuperar Acceso</button>
+                  <button 
+                    disabled={actionLoading}
+                    onClick={() => handleAuth('RECOVER')} 
+                    className="w-full py-5 bg-red-600 text-white font-black rounded-2xl shadow-xl shadow-red-600/20 text-lg tracking-widest uppercase border-b-4 border-red-800 active:translate-y-1 transition-all flex items-center justify-center gap-2"
+                  >
+                    {actionLoading ? <Loader2 className="animate-spin" size={20} /> : 'Recuperar Acceso'}
+                  </button>
                   <button onClick={() => { setView('AUTH'); setAuthError(null); setAuthSuccessMsg(null); }} className="text-slate-400 font-black text-[10px] uppercase tracking-widest hover:text-slate-900 transition-colors">Volver al Login</button>
                 </div>
               )}
@@ -400,6 +430,7 @@ const App: React.FC = () => {
         </div>
       )}
 
+      {/* DASHBOARD */}
       {view === 'DASHBOARD' && (
         <>
           <header className="p-8 flex justify-between items-center border-b border-slate-50 bg-white sticky top-0 z-10">
@@ -444,20 +475,26 @@ const App: React.FC = () => {
               );
             })}
 
-            {hawks.length > 0 && (
-              <div className="pt-10 pb-6 flex justify-center">
-                <button 
-                  onClick={() => supabase.auth.signOut()} 
-                  className="text-slate-300 font-black text-[10px] uppercase tracking-[0.3em] flex items-center gap-2 hover:text-red-600 transition-colors bg-slate-50 px-6 py-3 rounded-full"
-                >
-                  <LogOut size={14}/> Cerrar Sesión
-                </button>
+            {hawks.length === 0 && !initialLoading && (
+              <div className="flex flex-col items-center justify-center py-20 text-slate-300">
+                <Bird size={64} className="mb-4 opacity-20" />
+                <p className="text-xs font-black uppercase tracking-[0.3em]">No hay halcones registrados</p>
               </div>
             )}
+
+            <div className="pt-10 pb-6 flex justify-center">
+              <button 
+                onClick={() => supabase.auth.signOut()} 
+                className="text-slate-300 font-black text-[10px] uppercase tracking-[0.3em] flex items-center gap-2 hover:text-red-600 transition-colors bg-slate-50 px-6 py-3 rounded-full"
+              >
+                <LogOut size={14}/> Cerrar Sesión
+              </button>
+            </div>
           </main>
         </>
       )}
 
+      {/* HAWK DETAILS */}
       {view === 'HAWK_DETAILS' && selectedHawk && (
         <>
           <header className="p-8 flex justify-between items-center border-b border-slate-50 bg-white sticky top-0 z-10">
@@ -468,7 +505,13 @@ const App: React.FC = () => {
                 <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">DETALLES DEL EJEMPLAR</p>
               </div>
             </div>
-            <button onClick={() => { if(confirm('¿Eliminar registro?')) deleteHawkItem(selectedHawk.id) }} className="w-12 h-12 bg-slate-50 text-slate-200 hover:text-red-600 rounded-2xl flex items-center justify-center transition-colors"><Trash2 size={20}/></button>
+            <button 
+              disabled={actionLoading}
+              onClick={() => { if(confirm('¿Eliminar halcón?')) deleteHawkItem(selectedHawk.id) }} 
+              className="w-12 h-12 bg-slate-50 text-slate-200 hover:text-red-600 rounded-2xl flex items-center justify-center transition-colors"
+            >
+              {actionLoading ? <Loader2 className="animate-spin" size={20} /> : <Trash2 size={20}/>}
+            </button>
           </header>
           
           <main className="flex-1 overflow-y-auto p-6 space-y-6 no-scrollbar pb-40">
@@ -490,8 +533,12 @@ const App: React.FC = () => {
                       autoFocus
                     />
                     <div className="flex gap-2">
-                      <button onClick={updateTargetWeight} className="flex-1 bg-red-600 p-2 rounded-xl flex items-center justify-center hover:bg-red-700 transition-colors">
-                        <Check size={18}/>
+                      <button 
+                        disabled={actionLoading}
+                        onClick={updateTargetWeight} 
+                        className="flex-1 bg-red-600 p-2 rounded-xl flex items-center justify-center hover:bg-red-700 transition-colors"
+                      >
+                        {actionLoading ? <Loader2 className="animate-spin" size={18}/> : <Check size={18}/>}
                       </button>
                       <button onClick={() => setIsEditingTarget(false)} className="flex-1 bg-slate-700 p-2 rounded-xl flex items-center justify-center hover:bg-slate-600 transition-colors">
                         <X size={18}/>
@@ -528,6 +575,9 @@ const App: React.FC = () => {
 
             <div className="space-y-4">
               <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Registros Recientes</h4>
+              {selectedHawk.entries.length === 0 && (
+                <p className="text-center py-10 text-slate-300 text-[10px] font-black uppercase tracking-widest">Sin registros aún</p>
+              )}
               {selectedHawk.entries.map(e => (
                 <div key={e.id} className="bg-white border-2 border-slate-50 p-6 rounded-[2.5rem] shadow-sm flex items-center justify-between">
                   <div>
@@ -550,6 +600,7 @@ const App: React.FC = () => {
         </>
       )}
 
+      {/* ADD ENTRY */}
       {view === 'ADD_ENTRY' && (
         <main className="flex-1 flex flex-col p-8 space-y-8 bg-white overflow-y-auto no-scrollbar pb-32">
           <div className="flex items-center justify-between">
@@ -619,16 +670,17 @@ const App: React.FC = () => {
 
           <div className="fixed bottom-8 left-0 right-0 px-8 flex justify-center z-20">
             <button 
-              disabled={!weightBefore || currentFoodSelections.length === 0}
+              disabled={!weightBefore || currentFoodSelections.length === 0 || actionLoading}
               onClick={saveEntry} 
-              className="w-full max-w-sm py-6 bg-red-600 disabled:bg-slate-200 text-white font-black rounded-[2rem] shadow-2xl uppercase tracking-[0.2em] border-b-4 border-red-800 transition-all active:translate-y-1 italic text-lg"
+              className="w-full max-w-sm py-6 bg-red-600 disabled:bg-slate-200 text-white font-black rounded-[2rem] shadow-2xl uppercase tracking-[0.2em] border-b-4 border-red-800 transition-all active:translate-y-1 italic text-lg flex items-center justify-center gap-2"
             >
-              Guardar Peso
+              {actionLoading ? <Loader2 className="animate-spin" /> : 'Guardar Peso'}
             </button>
           </div>
         </main>
       )}
 
+      {/* ADD HAWK */}
       {view === 'ADD_HAWK' && (
         <main className="p-8 space-y-8 flex-1 flex flex-col bg-white">
           <div className="flex items-center gap-4">
@@ -651,7 +703,13 @@ const App: React.FC = () => {
               <input value={hawkTargetWeight} onChange={e => setHawkTargetWeight(e.target.value)} type="number" placeholder="Ej: 850" className="w-full p-6 bg-slate-50 border-2 border-slate-100 rounded-3xl font-black text-xl outline-none text-red-600" />
             </div>
           </div>
-          <button onClick={addHawk} className="w-full py-6 bg-red-600 text-white font-black rounded-[2rem] mt-auto uppercase tracking-widest border-b-4 border-red-800 italic text-lg active:scale-95 transition-all">Añadir Halcón</button>
+          <button 
+            disabled={actionLoading}
+            onClick={addHawk} 
+            className="w-full py-6 bg-red-600 text-white font-black rounded-[2rem] mt-auto uppercase tracking-widest border-b-4 border-red-800 italic text-lg active:scale-95 transition-all flex items-center justify-center gap-2"
+          >
+            {actionLoading ? <Loader2 className="animate-spin" /> : 'Añadir Halcón'}
+          </button>
         </main>
       )}
     </div>
