@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Bird, Plus, ChevronLeft, Trash2, LogOut, 
   TrendingUp, Eye, EyeOff, Utensils, Calendar, Target,
-  ChevronRight, Info, Activity, Minus, Check, X, Mail, ShieldCheck, Loader2
+  ChevronRight, Info, Activity, Minus, Check, X, Mail, ShieldCheck, Loader2, AlertCircle
 } from 'lucide-react';
 import { 
   Hawk, AppView, DailyEntry, FoodSelection, FoodCategory, FoodPortion, FOOD_WEIGHT_MAP 
@@ -29,27 +29,23 @@ const App: React.FC = () => {
   const [hawks, setHawks] = useState<Hawk[]>([]);
   const [selectedHawkId, setSelectedHawkId] = useState<string | null>(null);
   
-  // States para diferentes niveles de carga
   const [initialLoading, setInitialLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
+  const [dataError, setDataError] = useState<string | null>(null);
 
-  // Auth States
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const [authSuccessMsg, setAuthSuccessMsg] = useState<string | null>(null);
 
-  // New Hawk States
   const [hawkName, setHawkName] = useState('');
   const [hawkSpecies, setHawkSpecies] = useState(SPECIES_OPTIONS[0]);
   const [hawkTargetWeight, setHawkTargetWeight] = useState('');
 
-  // Editing Target Weight States
   const [isEditingTarget, setIsEditingTarget] = useState(false);
   const [tempTargetWeight, setTempTargetWeight] = useState('');
 
-  // New Entry States
   const [weightBefore, setWeightBefore] = useState('');
   const [currentFoodSelections, setCurrentFoodSelections] = useState<FoodSelection[]>([]);
 
@@ -58,30 +54,33 @@ const App: React.FC = () => {
   , [hawks, selectedHawkId]);
 
   useEffect(() => {
-    // Timeout de seguridad: si Supabase no responde en 5s, quitamos el loading
-    const safetyTimer = setTimeout(() => {
-      if (initialLoading) {
-        setInitialLoading(false);
-        window.dispatchEvent(new CustomEvent('app-ready'));
-      }
-    }, 5000);
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log("Auth Event:", event);
+    // Escuchar cambios de autenticación
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log("Supabase Auth Event:", event);
+      
       if (session) {
         setUser(session.user);
-        await loadData(session.user.id);
         setView('DASHBOARD');
+        // Cargamos los datos sin bloquear la UI
+        loadData(session.user.id);
       } else {
         setUser(null);
+        // Solo resetear vista si no estamos en registro o recuperación
         if (view !== 'SIGNUP' && view !== 'RECOVER') setView('AUTH');
         setHawks([]);
       }
+      
+      // QUITAMOS EL LOADING SIEMPRE que Supabase nos responda algo
       setInitialLoading(false);
-      clearTimeout(safetyTimer);
-      window.dispatchEvent(new CustomEvent('app-ready'));
     });
-    return () => subscription.unsubscribe();
+
+    // Timeout de seguridad extremo (3 segundos)
+    const timer = setTimeout(() => setInitialLoading(false), 3000);
+
+    return () => {
+      subscription.unsubscribe();
+      clearTimeout(timer);
+    };
   }, []);
 
   const loadData = async (userId: string) => {
@@ -91,15 +90,21 @@ const App: React.FC = () => {
       return;
     }
 
+    setDataError(null);
     try {
       const { data, error } = await supabase
         .from('hawks')
         .select('*, entries(*)')
         .eq('user_id', userId);
       
-      if (error) throw error;
+      if (error) {
+        if (error.code === 'PGRST116' || error.message.includes('relation "hawks" does not exist')) {
+          setDataError("Error: Las tablas no existen en Supabase. Por favor, créalas.");
+        }
+        throw error;
+      }
       
-      const formattedHawks = data.map((h: any) => ({
+      const formattedHawks = (data || []).map((h: any) => ({
         ...h,
         targetWeight: h.target_weight,
         entries: (h.entries || []).map((e: any) => ({
@@ -111,8 +116,8 @@ const App: React.FC = () => {
       }));
       
       setHawks(formattedHawks);
-    } catch (e) {
-      console.error("Error loading data:", e);
+    } catch (e: any) {
+      console.error("Data load error:", e);
     }
   };
 
@@ -137,7 +142,7 @@ const App: React.FC = () => {
         if (error) throw error;
         
         if (data.user && !data.session) {
-          setAuthSuccessMsg("¡Cuenta creada! Revisa tu email para confirmarla antes de entrar.");
+          setAuthSuccessMsg("¡Cuenta creada! Revisa tu email para confirmarla.");
         } else {
           setAuthSuccessMsg("¡Registro completado!");
         }
@@ -148,7 +153,6 @@ const App: React.FC = () => {
         setAuthSuccessMsg("Enlace de recuperación enviado.");
       }
     } catch (e: any) {
-      console.error("Auth Error:", e);
       setAuthError(e.message || "Error en la operación");
     } finally {
       setActionLoading(false);
@@ -320,17 +324,16 @@ const App: React.FC = () => {
         </div>
       )}
       
-      {/* El overlay solo se muestra en la carga inicial y si YA estamos logueados para cargar datos */}
-      {initialLoading && !isAuthView && (
-        <div className="absolute inset-0 bg-white/80 backdrop-blur-md z-50 flex flex-col items-center justify-center">
+      {initialLoading && !user && (
+        <div className="absolute inset-0 bg-white z-[100] flex flex-col items-center justify-center">
           <div className="spinner"></div>
-          <p className="mt-4 text-[10px] font-black uppercase tracking-[0.3em] text-red-600">Actualizando Halcones...</p>
+          <p className="mt-4 text-[10px] font-black uppercase tracking-[0.3em] text-red-600 italic">Falcon Weight Pro</p>
         </div>
       )}
 
-      {/* Pantallas de Autenticación */}
-      {isAuthView && (
-        <div className="flex-1 flex flex-col p-8 justify-center items-center text-center max-w-sm mx-auto w-full">
+      {/* Auth Views */}
+      {isAuthView && !user && (
+        <div className="flex-1 flex flex-col p-8 justify-center items-center text-center max-w-sm mx-auto w-full animate-in fade-in duration-500">
           <div className="w-20 h-20 bg-red-600 rounded-[1.8rem] flex items-center justify-center mb-6 shadow-2xl shadow-red-600/40 transform -rotate-6">
             <Bird className="w-10 h-10 text-white" />
           </div>
@@ -368,18 +371,16 @@ const App: React.FC = () => {
             </div>
 
             {authError && (
-              <div className="animate-in slide-in-from-top-2 duration-300">
-                <p className="text-[10px] font-black text-red-600 uppercase bg-red-50 p-3 rounded-xl border border-red-100">
-                  {authError}
-                </p>
+              <div className="bg-red-50 p-4 rounded-2xl border border-red-100 flex items-start gap-3 text-left">
+                <AlertCircle className="text-red-600 shrink-0" size={18} />
+                <p className="text-[10px] font-bold text-red-600 uppercase leading-relaxed">{authError}</p>
               </div>
             )}
 
             {authSuccessMsg && (
-              <div className="animate-in slide-in-from-top-2 duration-300">
-                <p className="text-[10px] font-black text-green-600 uppercase bg-green-50 p-3 rounded-xl border border-green-100">
-                  {authSuccessMsg}
-                </p>
+              <div className="bg-green-50 p-4 rounded-2xl border border-green-100 flex items-start gap-3 text-left">
+                <Check className="text-green-600 shrink-0" size={18} />
+                <p className="text-[10px] font-bold text-green-600 uppercase leading-relaxed">{authSuccessMsg}</p>
               </div>
             )}
 
@@ -430,287 +431,240 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* DASHBOARD */}
-      {view === 'DASHBOARD' && (
-        <>
-          <header className="p-8 flex justify-between items-center border-b border-slate-50 bg-white sticky top-0 z-10">
-            <div>
-              <h2 className="text-2xl font-black tracking-tighter uppercase italic">Mis <span className="text-red-600">Halcones</span></h2>
-              <div className="flex items-center gap-2 mt-1">
-                <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-                <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">{hawks.length} Halcones Activos</p>
-              </div>
+      {/* App Content (DASHBOARD, etc) */}
+      {user && (
+        <div className="flex-1 flex flex-col overflow-hidden animate-in slide-in-from-bottom-5 duration-700">
+          {dataError && (
+            <div className="bg-red-600 text-white p-3 flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest">
+              <AlertCircle size={14} /> {dataError}
             </div>
-            <button onClick={() => setView('ADD_HAWK')} className="w-14 h-14 bg-red-600 rounded-2xl flex items-center justify-center text-white shadow-xl border-b-4 border-red-800 active:scale-95 transition-all"><Plus size={32}/></button>
-          </header>
-          <main className="flex-1 overflow-y-auto p-6 space-y-5 no-scrollbar">
-            {hawks.map(h => {
-              const estWeight = calculatePrediction(h);
-              const lastWeight = h.entries[0]?.weightBefore;
-              return (
-                <div key={h.id} onClick={() => { setSelectedHawkId(h.id); setView('HAWK_DETAILS'); }} className="group bg-white border-2 border-slate-50 p-6 rounded-[3rem] flex flex-col md:flex-row md:items-center justify-between shadow-sm hover:border-red-600 hover:shadow-xl hover:shadow-red-600/5 transition-all cursor-pointer relative overflow-hidden">
-                  <div className="flex items-center gap-5 mb-6 md:mb-0">
-                    <div className="w-16 h-16 bg-slate-50 text-slate-400 group-hover:bg-red-600 group-hover:text-white rounded-[2rem] flex items-center justify-center transition-all shadow-inner shrink-0"><Bird size={32}/></div>
-                    <div className="overflow-hidden">
-                      <h3 className="font-black text-2xl tracking-tighter truncate leading-tight">{h.name}</h3>
-                      <p className="text-[10px] text-slate-300 font-black uppercase tracking-[0.2em]">{h.species}</p>
-                    </div>
+          )}
+
+          {view === 'DASHBOARD' && (
+            <>
+              <header className="p-8 flex justify-between items-center border-b border-slate-50 bg-white sticky top-0 z-10">
+                <div>
+                  <h2 className="text-2xl font-black tracking-tighter uppercase italic">Mis <span className="text-red-600">Halcones</span></h2>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                    <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">{hawks.length} Halcones</p>
                   </div>
-                  
-                  <div className="grid grid-cols-3 gap-2 md:gap-4 shrink-0 bg-slate-50/50 p-3 rounded-[2rem] md:p-1 md:bg-transparent">
-                    <div className="text-center bg-white md:bg-transparent p-3 md:p-2 rounded-2xl md:rounded-none shadow-sm md:shadow-none border border-slate-50 md:border-none">
-                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Target</p>
-                      <p className="text-lg font-black tabular-nums text-slate-900 leading-none">{h.targetWeight}<span className="text-[10px] ml-0.5">g</span></p>
+                </div>
+                <button onClick={() => setView('ADD_HAWK')} className="w-14 h-14 bg-red-600 rounded-2xl flex items-center justify-center text-white shadow-xl border-b-4 border-red-800 active:scale-95 transition-all"><Plus size={32}/></button>
+              </header>
+              <main className="flex-1 overflow-y-auto p-6 space-y-5 no-scrollbar">
+                {hawks.map(h => {
+                  const estWeight = calculatePrediction(h);
+                  const lastWeight = h.entries[0]?.weightBefore;
+                  return (
+                    <div key={h.id} onClick={() => { setSelectedHawkId(h.id); setView('HAWK_DETAILS'); }} className="group bg-white border-2 border-slate-50 p-6 rounded-[3rem] flex flex-col md:flex-row md:items-center justify-between shadow-sm hover:border-red-600 hover:shadow-xl hover:shadow-red-600/5 transition-all cursor-pointer relative overflow-hidden">
+                      <div className="flex items-center gap-5 mb-6 md:mb-0">
+                        <div className="w-16 h-16 bg-slate-50 text-slate-400 group-hover:bg-red-600 group-hover:text-white rounded-[2rem] flex items-center justify-center transition-all shadow-inner shrink-0"><Bird size={32}/></div>
+                        <div className="overflow-hidden">
+                          <h3 className="font-black text-2xl tracking-tighter truncate leading-tight">{h.name}</h3>
+                          <p className="text-[10px] text-slate-300 font-black uppercase tracking-[0.2em]">{h.species}</p>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2 md:gap-4 shrink-0 bg-slate-50/50 p-3 rounded-[2rem] md:p-1 md:bg-transparent">
+                        <div className="text-center bg-white md:bg-transparent p-3 md:p-2 rounded-2xl md:rounded-none shadow-sm md:shadow-none border border-slate-50 md:border-none">
+                          <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Target</p>
+                          <p className="text-lg font-black tabular-nums text-slate-900 leading-none">{h.targetWeight}<span className="text-[10px] ml-0.5">g</span></p>
+                        </div>
+                        <div className="text-center bg-white md:bg-transparent p-3 md:p-2 rounded-2xl md:rounded-none shadow-sm md:shadow-none border border-slate-50 md:border-none border-x-0 md:border-x md:border-slate-100">
+                          <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Last</p>
+                          <p className="text-lg font-black tabular-nums text-red-600 leading-none">{lastWeight || '--'}<span className="text-[10px] ml-0.5">g</span></p>
+                        </div>
+                        <div className="text-center bg-slate-900 p-3 md:p-3 rounded-2xl md:rounded-[1.2rem] shadow-xl shadow-slate-900/10 min-w-[70px]">
+                          <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">Est.</p>
+                          <p className="text-lg font-black tabular-nums text-white leading-none">{estWeight || '--'}<span className="text-[10px] ml-0.5">g</span></p>
+                        </div>
+                      </div>
                     </div>
-                    <div className="text-center bg-white md:bg-transparent p-3 md:p-2 rounded-2xl md:rounded-none shadow-sm md:shadow-none border border-slate-50 md:border-none border-x-0 md:border-x md:border-slate-100">
-                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Last</p>
-                      <p className="text-lg font-black tabular-nums text-red-600 leading-none">{lastWeight || '--'}<span className="text-[10px] ml-0.5">g</span></p>
-                    </div>
-                    <div className="text-center bg-slate-900 p-3 md:p-3 rounded-2xl md:rounded-[1.2rem] shadow-xl shadow-slate-900/10 min-w-[70px]">
-                      <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">Est.</p>
-                      <p className="text-lg font-black tabular-nums text-white leading-none">{estWeight || '--'}<span className="text-[10px] ml-0.5">g</span></p>
+                  );
+                })}
+                {hawks.length === 0 && (
+                  <div className="flex flex-col items-center justify-center py-20 text-slate-300">
+                    <Bird size={64} className="mb-4 opacity-20" />
+                    <p className="text-xs font-black uppercase tracking-[0.3em]">Pulsa + para añadir halcón</p>
+                  </div>
+                )}
+                <div className="pt-10 pb-6 flex justify-center">
+                  <button onClick={() => supabase.auth.signOut()} className="text-slate-300 font-black text-[10px] uppercase tracking-[0.3em] flex items-center gap-2 hover:text-red-600 transition-colors bg-slate-50 px-6 py-3 rounded-full">
+                    <LogOut size={14}/> Cerrar Sesión
+                  </button>
+                </div>
+              </main>
+            </>
+          )}
+
+          {view === 'HAWK_DETAILS' && selectedHawk && (
+            <>
+              <header className="p-8 flex justify-between items-center border-b border-slate-50 bg-white sticky top-0 z-10">
+                <div className="flex items-center gap-4">
+                  <button onClick={() => setView('DASHBOARD')} className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-400"><ChevronLeft/></button>
+                  <div>
+                    <h2 className="font-black text-2xl uppercase italic tracking-tighter">{selectedHawk.name}</h2>
+                    <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">HISTORIAL</p>
+                  </div>
+                </div>
+                <button disabled={actionLoading} onClick={() => { if(confirm('¿Eliminar halcón?')) deleteHawkItem(selectedHawk.id) }} className="w-12 h-12 bg-slate-50 text-slate-200 hover:text-red-600 rounded-2xl flex items-center justify-center transition-colors">
+                  {actionLoading ? <Loader2 className="animate-spin" size={20} /> : <Trash2 size={20}/>}
+                </button>
+              </header>
+              <main className="flex-1 overflow-y-auto p-6 space-y-6 no-scrollbar pb-40">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-red-600 p-8 rounded-[3rem] text-white shadow-2xl shadow-red-600/20 border-b-8 border-red-800">
+                    <p className="text-[10px] font-black uppercase tracking-widest opacity-60 mb-2">Peso Actual</p>
+                    <p className="text-5xl font-black leading-none">{selectedHawk.entries[0]?.weightBefore || '--'}<span className="text-sm font-bold ml-1">g</span></p>
+                  </div>
+                  <div className="bg-slate-900 p-8 rounded-[3rem] text-white border-b-8 border-slate-800 relative group" onClick={() => { setTempTargetWeight(selectedHawk.targetWeight.toString()); setIsEditingTarget(true); }}>
+                    <p className="text-[10px] font-black uppercase tracking-widest opacity-60 mb-2">Target</p>
+                    <div className="flex items-end justify-between">
+                      <p className="text-5xl font-black leading-none">{selectedHawk.targetWeight}<span className="text-sm font-bold ml-1">g</span></p>
+                      <Plus size={16} className="text-slate-500 mb-1" />
                     </div>
                   </div>
                 </div>
-              );
-            })}
-
-            {hawks.length === 0 && !initialLoading && (
-              <div className="flex flex-col items-center justify-center py-20 text-slate-300">
-                <Bird size={64} className="mb-4 opacity-20" />
-                <p className="text-xs font-black uppercase tracking-[0.3em]">No hay halcones registrados</p>
-              </div>
-            )}
-
-            <div className="pt-10 pb-6 flex justify-center">
-              <button 
-                onClick={() => supabase.auth.signOut()} 
-                className="text-slate-300 font-black text-[10px] uppercase tracking-[0.3em] flex items-center gap-2 hover:text-red-600 transition-colors bg-slate-50 px-6 py-3 rounded-full"
-              >
-                <LogOut size={14}/> Cerrar Sesión
-              </button>
-            </div>
-          </main>
-        </>
-      )}
-
-      {/* HAWK DETAILS */}
-      {view === 'HAWK_DETAILS' && selectedHawk && (
-        <>
-          <header className="p-8 flex justify-between items-center border-b border-slate-50 bg-white sticky top-0 z-10">
-            <div className="flex items-center gap-4">
-              <button onClick={() => { setView('DASHBOARD'); setIsEditingTarget(false); }} className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-400"><ChevronLeft/></button>
-              <div>
-                <h2 className="font-black text-2xl uppercase italic tracking-tighter">{selectedHawk.name}</h2>
-                <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">DETALLES DEL EJEMPLAR</p>
-              </div>
-            </div>
-            <button 
-              disabled={actionLoading}
-              onClick={() => { if(confirm('¿Eliminar halcón?')) deleteHawkItem(selectedHawk.id) }} 
-              className="w-12 h-12 bg-slate-50 text-slate-200 hover:text-red-600 rounded-2xl flex items-center justify-center transition-colors"
-            >
-              {actionLoading ? <Loader2 className="animate-spin" size={20} /> : <Trash2 size={20}/>}
-            </button>
-          </header>
-          
-          <main className="flex-1 overflow-y-auto p-6 space-y-6 no-scrollbar pb-40">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-red-600 p-8 rounded-[3rem] text-white shadow-2xl shadow-red-600/20 border-b-8 border-red-800">
-                <p className="text-[10px] font-black uppercase tracking-widest opacity-60 mb-2">Peso Actual</p>
-                <p className="text-5xl font-black leading-none">{selectedHawk.entries[0]?.weightBefore || '--'}<span className="text-sm font-bold ml-1">g</span></p>
-              </div>
-              
-              <div className="bg-slate-900 p-8 rounded-[3rem] text-white border-b-8 border-slate-800 relative overflow-hidden group">
-                <p className="text-[10px] font-black uppercase tracking-widest opacity-60 mb-2">Target</p>
-                {isEditingTarget ? (
-                  <div className="space-y-3 animate-in fade-in duration-300">
-                    <input 
-                      type="number" 
-                      value={tempTargetWeight} 
-                      onChange={e => setTempTargetWeight(e.target.value)}
-                      className="w-full bg-slate-800 border-2 border-slate-700 rounded-xl p-2 font-black text-2xl outline-none focus:border-red-600 text-center text-white"
-                      autoFocus
-                    />
-                    <div className="flex gap-2">
-                      <button 
-                        disabled={actionLoading}
-                        onClick={updateTargetWeight} 
-                        className="flex-1 bg-red-600 p-2 rounded-xl flex items-center justify-center hover:bg-red-700 transition-colors"
-                      >
-                        {actionLoading ? <Loader2 className="animate-spin" size={18}/> : <Check size={18}/>}
-                      </button>
-                      <button onClick={() => setIsEditingTarget(false)} className="flex-1 bg-slate-700 p-2 rounded-xl flex items-center justify-center hover:bg-slate-600 transition-colors">
-                        <X size={18}/>
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div 
-                    className="flex items-end justify-between cursor-pointer" 
-                    onClick={() => { setTempTargetWeight(selectedHawk.targetWeight.toString()); setIsEditingTarget(true); }}
-                  >
-                    <p className="text-5xl font-black leading-none">{selectedHawk.targetWeight}<span className="text-sm font-bold ml-1">g</span></p>
-                    <div className="text-slate-500 group-hover:text-red-500 transition-colors mb-1">
-                      <Plus size={16}/>
+                {/* Editor Modal de Target */}
+                {isEditingTarget && (
+                  <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-6">
+                    <div className="bg-white w-full max-w-sm rounded-[3rem] p-8 shadow-2xl animate-in zoom-in-95 duration-200">
+                      <h3 className="text-[11px] font-black uppercase tracking-widest text-slate-400 mb-6 text-center">Editar Peso Ideal</h3>
+                      <input 
+                        type="number" 
+                        value={tempTargetWeight} 
+                        onChange={e => setTempTargetWeight(e.target.value)}
+                        className="w-full bg-slate-50 border-2 border-slate-100 rounded-3xl p-6 font-black text-4xl outline-none focus:border-red-600 text-center text-slate-900 mb-6"
+                        autoFocus
+                      />
+                      <div className="flex gap-4">
+                        <button onClick={() => setIsEditingTarget(false)} className="flex-1 py-4 bg-slate-100 text-slate-400 font-black rounded-2xl uppercase tracking-widest">Cancelar</button>
+                        <button onClick={updateTargetWeight} className="flex-1 py-4 bg-red-600 text-white font-black rounded-2xl uppercase tracking-widest shadow-xl shadow-red-600/20">Guardar</button>
+                      </div>
                     </div>
                   </div>
                 )}
-              </div>
-            </div>
-
-            <div className="bg-white rounded-[3rem] border-2 border-slate-50 p-6 shadow-sm">
-               <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4 text-center">Historial de Peso</h4>
-               <div className="h-48">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={chartData}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                    <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#cbd5e1'}} />
-                    <Tooltip />
-                    <Area type="monotone" dataKey="weight" stroke="#dc2626" strokeWidth={4} fill="#dc2626" fillOpacity={0.1} />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Registros Recientes</h4>
-              {selectedHawk.entries.length === 0 && (
-                <p className="text-center py-10 text-slate-300 text-[10px] font-black uppercase tracking-widest">Sin registros aún</p>
-              )}
-              {selectedHawk.entries.map(e => (
-                <div key={e.id} className="bg-white border-2 border-slate-50 p-6 rounded-[2.5rem] shadow-sm flex items-center justify-between">
-                  <div>
-                    <p className="text-xl font-black">{e.weightBefore}g</p>
-                    <p className="text-[10px] font-black text-red-600 uppercase tracking-widest">{e.totalFoodWeight}g comida</p>
-                  </div>
-                  <div className="text-right text-[10px] font-bold text-slate-300 uppercase">
-                    {new Date(e.date).toLocaleDateString()}
+                <div className="bg-white rounded-[3rem] border-2 border-slate-50 p-6 shadow-sm">
+                   <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4 text-center">Evolución Semanal</h4>
+                   <div className="h-48">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={chartData}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                        <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#cbd5e1'}} />
+                        <Tooltip />
+                        <Area type="monotone" dataKey="weight" stroke="#dc2626" strokeWidth={4} fill="#dc2626" fillOpacity={0.1} />
+                      </AreaChart>
+                    </ResponsiveContainer>
                   </div>
                 </div>
-              ))}
-            </div>
-          </main>
-
-          <div className="absolute bottom-10 left-0 right-0 px-8 flex justify-center pointer-events-none">
-            <button onClick={() => setView('ADD_ENTRY')} className="w-full max-w-sm py-6 bg-red-600 text-white font-black rounded-[2rem] shadow-2xl shadow-red-600/40 flex items-center justify-center gap-3 active:scale-95 transition-all pointer-events-auto text-lg uppercase tracking-[0.2em] border-b-4 border-red-800 italic">
-              <Plus size={24} /> Nuevo Registro
-            </button>
-          </div>
-        </>
-      )}
-
-      {/* ADD ENTRY */}
-      {view === 'ADD_ENTRY' && (
-        <main className="flex-1 flex flex-col p-8 space-y-8 bg-white overflow-y-auto no-scrollbar pb-32">
-          <div className="flex items-center justify-between">
-            <button onClick={() => setView('HAWK_DETAILS')} className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-400"><ChevronLeft/></button>
-            <h2 className="text-xl font-black uppercase italic tracking-tighter">Peso <span className="text-red-600">Diario</span></h2>
-            <div className="w-12"></div>
-          </div>
-
-          <div className="text-center space-y-2">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em]">Peso Actual (g)</p>
-            <input value={weightBefore} onChange={e => setWeightBefore(e.target.value)} type="number" placeholder="000" className="w-full bg-transparent border-none font-black text-center text-8xl outline-none text-slate-900 placeholder:text-slate-100 tabular-nums" autoFocus />
-          </div>
-
-          <div className="space-y-6">
-            <div className="flex justify-between items-center px-4 bg-slate-900 p-4 rounded-3xl text-white">
-              <div className="flex items-center gap-2">
-                <Utensils size={18} className="text-red-500" />
-                <h3 className="text-[11px] font-black uppercase tracking-widest">Comida Total</h3>
+                <div className="space-y-4">
+                  <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Registros Recientes</h4>
+                  {selectedHawk.entries.length === 0 && <p className="text-center py-10 text-slate-300 text-[10px] font-black uppercase italic">Sin registros</p>}
+                  {selectedHawk.entries.map(e => (
+                    <div key={e.id} className="bg-white border-2 border-slate-50 p-6 rounded-[2.5rem] shadow-sm flex items-center justify-between">
+                      <div>
+                        <p className="text-xl font-black tabular-nums">{e.weightBefore}g</p>
+                        <p className="text-[10px] font-black text-red-600 uppercase tracking-widest">+{e.totalFoodWeight}g comida</p>
+                      </div>
+                      <div className="text-right text-[10px] font-bold text-slate-300 uppercase italic">
+                        {new Date(e.date).toLocaleDateString()}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </main>
+              <div className="fixed bottom-10 left-0 right-0 px-8 flex justify-center z-20">
+                <button onClick={() => setView('ADD_ENTRY')} className="w-full max-w-sm py-6 bg-red-600 text-white font-black rounded-[2rem] shadow-2xl shadow-red-600/40 flex items-center justify-center gap-3 active:scale-95 transition-all text-lg uppercase tracking-[0.2em] border-b-4 border-red-800 italic">
+                  <Plus size={24} /> Registrar Peso
+                </button>
               </div>
-              <div className="text-2xl font-black text-red-500">{totalFoodWeight}g</div>
-            </div>
+            </>
+          )}
 
-            <div className="space-y-6">
-              {(Object.keys(FOOD_WEIGHT_MAP) as FoodCategory[]).map(cat => {
-                const config = FOOD_COLORS[cat];
-                return (
-                  <div key={cat} className={`${config.bg} ${config.border} border-2 p-5 rounded-[2.5rem] space-y-4 shadow-sm`}>
-                    <div className="flex items-center gap-2 px-2">
-                      <div className={`w-2 h-2 rounded-full ${config.badge}`}></div>
-                      <p className={`text-[11px] font-black uppercase tracking-widest ${config.text}`}>{cat}</p>
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      {(Object.keys(FOOD_WEIGHT_MAP[cat]) as FoodPortion[]).map(por => {
-                        const qty = getPortionQuantity(cat, por);
-                        return (
-                          <div key={por} className="relative">
-                            <button 
-                              onClick={() => updateFoodQuantity(cat, por, 1)}
-                              className={`w-full ${config.bg} border-2 ${config.border} ${config.hover} p-4 rounded-2xl flex flex-col items-center justify-center transition-all active:scale-95 group overflow-hidden`}
-                            >
-                              <span className={`text-[10px] font-black uppercase opacity-60 ${config.text}`}>{por}</span>
-                              <span className={`text-lg font-black ${config.text}`}>{FOOD_WEIGHT_MAP[cat][por]}g</span>
-                              
-                              {qty > 0 && (
-                                <div className={`absolute -top-2 -right-2 w-8 h-8 ${config.badge} text-white rounded-full flex items-center justify-center text-xs font-black shadow-lg border-2 border-white animate-in zoom-in duration-300`}>
-                                  {qty}
-                                </div>
-                              )}
-                            </button>
-                            {qty > 0 && (
-                              <button 
-                                onClick={(e) => { e.stopPropagation(); updateFoodQuantity(cat, por, -1); }}
-                                className="absolute -bottom-2 -left-2 w-7 h-7 bg-white border-2 border-slate-100 text-slate-400 rounded-full flex items-center justify-center shadow-sm active:bg-slate-50"
-                              >
-                                <Minus size={14} />
-                              </button>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
+          {view === 'ADD_ENTRY' && (
+            <main className="flex-1 flex flex-col p-8 space-y-8 bg-white overflow-y-auto no-scrollbar pb-32">
+              <div className="flex items-center justify-between">
+                <button onClick={() => setView('HAWK_DETAILS')} className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-400"><ChevronLeft/></button>
+                <h2 className="text-xl font-black uppercase italic tracking-tighter">Peso <span className="text-red-600">Hoy</span></h2>
+                <div className="w-12"></div>
+              </div>
+              <div className="text-center space-y-2">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em]">Peso Antes de Comer (g)</p>
+                <input value={weightBefore} onChange={e => setWeightBefore(e.target.value)} type="number" placeholder="000" className="w-full bg-transparent border-none font-black text-center text-8xl outline-none text-slate-900 placeholder:text-slate-100 tabular-nums" autoFocus />
+              </div>
+              <div className="space-y-6">
+                <div className="flex justify-between items-center px-6 bg-slate-900 py-5 rounded-[2rem] text-white">
+                  <div className="flex items-center gap-2">
+                    <Utensils size={18} className="text-red-500" />
+                    <h3 className="text-[11px] font-black uppercase tracking-widest">Gramos Ingeridos</h3>
                   </div>
-                );
-              })}
-            </div>
-          </div>
+                  <div className="text-3xl font-black text-red-500 tabular-nums">{totalFoodWeight}g</div>
+                </div>
+                <div className="space-y-6">
+                  {(Object.keys(FOOD_WEIGHT_MAP) as FoodCategory[]).map(cat => {
+                    const config = FOOD_COLORS[cat];
+                    return (
+                      <div key={cat} className={`${config.bg} ${config.border} border-2 p-5 rounded-[2.5rem] space-y-4 shadow-sm`}>
+                        <div className="flex items-center gap-2 px-2">
+                          <div className={`w-2 h-2 rounded-full ${config.badge}`}></div>
+                          <p className={`text-[11px] font-black uppercase tracking-widest ${config.text}`}>{cat}</p>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          {(Object.keys(FOOD_WEIGHT_MAP[cat]) as FoodPortion[]).map(por => {
+                            const qty = getPortionQuantity(cat, por);
+                            return (
+                              <div key={por} className="relative">
+                                <button onClick={() => updateFoodQuantity(cat, por, 1)} className={`w-full ${config.bg} border-2 ${config.border} ${config.hover} p-4 rounded-2xl flex flex-col items-center justify-center transition-all active:scale-95`}>
+                                  <span className={`text-[10px] font-black uppercase opacity-60 ${config.text}`}>{por}</span>
+                                  <span className={`text-lg font-black ${config.text}`}>{FOOD_WEIGHT_MAP[cat][por]}g</span>
+                                  {qty > 0 && <div className={`absolute -top-2 -right-2 w-8 h-8 ${config.badge} text-white rounded-full flex items-center justify-center text-xs font-black shadow-lg border-2 border-white animate-in zoom-in`}>{qty}</div>}
+                                </button>
+                                {qty > 0 && <button onClick={(e) => { e.stopPropagation(); updateFoodQuantity(cat, por, -1); }} className="absolute -bottom-2 -left-2 w-7 h-7 bg-white border-2 border-slate-100 text-slate-400 rounded-full flex items-center justify-center shadow-sm"><Minus size={14} /></button>}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+              <div className="fixed bottom-8 left-0 right-0 px-8 flex justify-center z-20">
+                <button disabled={!weightBefore || actionLoading} onClick={saveEntry} className="w-full max-w-sm py-6 bg-red-600 disabled:bg-slate-200 text-white font-black rounded-[2rem] shadow-2xl uppercase tracking-[0.2em] border-b-4 border-red-800 transition-all text-lg italic flex items-center justify-center gap-2">
+                  {actionLoading ? <Loader2 className="animate-spin" /> : 'Finalizar Registro'}
+                </button>
+              </div>
+            </main>
+          )}
 
-          <div className="fixed bottom-8 left-0 right-0 px-8 flex justify-center z-20">
-            <button 
-              disabled={!weightBefore || currentFoodSelections.length === 0 || actionLoading}
-              onClick={saveEntry} 
-              className="w-full max-w-sm py-6 bg-red-600 disabled:bg-slate-200 text-white font-black rounded-[2rem] shadow-2xl uppercase tracking-[0.2em] border-b-4 border-red-800 transition-all active:translate-y-1 italic text-lg flex items-center justify-center gap-2"
-            >
-              {actionLoading ? <Loader2 className="animate-spin" /> : 'Guardar Peso'}
-            </button>
-          </div>
-        </main>
-      )}
-
-      {/* ADD HAWK */}
-      {view === 'ADD_HAWK' && (
-        <main className="p-8 space-y-8 flex-1 flex flex-col bg-white">
-          <div className="flex items-center gap-4">
-            <button onClick={() => setView('DASHBOARD')} className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-400"><ChevronLeft/></button>
-            <h2 className="text-2xl font-black uppercase italic tracking-tighter">Nuevo <span className="text-red-600">Halcón</span></h2>
-          </div>
-          <div className="space-y-6">
-            <div className="space-y-1">
-              <label className="text-[10px] font-black text-slate-300 uppercase tracking-widest ml-4">Nombre</label>
-              <input value={hawkName} onChange={e => setHawkName(e.target.value)} placeholder="Ej: Artic" className="w-full p-6 bg-slate-50 border-2 border-slate-100 rounded-3xl font-black text-xl outline-none" />
-            </div>
-            <div className="space-y-1">
-              <label className="text-[10px] font-black text-slate-300 uppercase tracking-widest ml-4">Especie</label>
-              <select value={hawkSpecies} onChange={e => setHawkSpecies(e.target.value)} className="w-full p-6 bg-slate-50 border-2 border-slate-100 rounded-3xl font-black text-xl outline-none uppercase">
-                {SPECIES_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-              </select>
-            </div>
-            <div className="space-y-1">
-              <label className="text-[10px] font-black text-slate-300 uppercase tracking-widest ml-4">Peso de Vuelo Ideal (g)</label>
-              <input value={hawkTargetWeight} onChange={e => setHawkTargetWeight(e.target.value)} type="number" placeholder="Ej: 850" className="w-full p-6 bg-slate-50 border-2 border-slate-100 rounded-3xl font-black text-xl outline-none text-red-600" />
-            </div>
-          </div>
-          <button 
-            disabled={actionLoading}
-            onClick={addHawk} 
-            className="w-full py-6 bg-red-600 text-white font-black rounded-[2rem] mt-auto uppercase tracking-widest border-b-4 border-red-800 italic text-lg active:scale-95 transition-all flex items-center justify-center gap-2"
-          >
-            {actionLoading ? <Loader2 className="animate-spin" /> : 'Añadir Halcón'}
-          </button>
-        </main>
+          {view === 'ADD_HAWK' && (
+            <main className="p-8 space-y-8 flex-1 flex flex-col bg-white">
+              <div className="flex items-center gap-4">
+                <button onClick={() => setView('DASHBOARD')} className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-400"><ChevronLeft/></button>
+                <h2 className="text-2xl font-black uppercase italic tracking-tighter">Nuevo <span className="text-red-600">Halcón</span></h2>
+              </div>
+              <div className="space-y-6">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-slate-300 uppercase tracking-widest ml-4">Nombre</label>
+                  <input value={hawkName} onChange={e => setHawkName(e.target.value)} placeholder="Ej: Ártico" className="w-full p-6 bg-slate-50 border-2 border-slate-100 rounded-3xl font-black text-xl outline-none" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-slate-300 uppercase tracking-widest ml-4">Especie</label>
+                  <select value={hawkSpecies} onChange={e => setHawkSpecies(e.target.value)} className="w-full p-6 bg-slate-50 border-2 border-slate-100 rounded-3xl font-black text-xl outline-none uppercase">
+                    {SPECIES_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-slate-300 uppercase tracking-widest ml-4">Peso de Vuelo Ideal (g)</label>
+                  <input value={hawkTargetWeight} onChange={e => setHawkTargetWeight(e.target.value)} type="number" placeholder="Ej: 850" className="w-full p-6 bg-slate-50 border-2 border-slate-100 rounded-3xl font-black text-xl outline-none text-red-600" />
+                </div>
+              </div>
+              <button disabled={actionLoading} onClick={addHawk} className="w-full py-6 bg-red-600 text-white font-black rounded-[2rem] mt-auto uppercase tracking-widest border-b-4 border-red-800 italic text-lg active:scale-95 flex items-center justify-center gap-2">
+                {actionLoading ? <Loader2 className="animate-spin" /> : 'Confirmar Halcón'}
+              </button>
+            </main>
+          )}
+        </div>
       )}
     </div>
   );
