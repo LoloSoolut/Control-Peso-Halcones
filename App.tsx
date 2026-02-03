@@ -116,24 +116,25 @@ const App: React.FC = () => {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
       } else if (action === 'SIGNUP') {
+        if (!email || !password) throw new Error("Email y contraseña requeridos.");
         const { error } = await supabase.auth.signUp({ email, password });
         if (error) {
-          if (error.message.includes('already registered') || error.status === 400) {
-            throw new Error("Este email ya está registrado. Por favor, inicia sesión.");
+          if (error.message.toLowerCase().includes('already registered') || 
+              error.message.toLowerCase().includes('ya está registrado') ||
+              error.status === 400) {
+            throw new Error("Este email ya está guardado en nuestra base de datos. Por favor, inicia sesión.");
           }
           throw error;
         }
-        alert("¡Cuenta creada con éxito!");
+        alert("¡Cuenta creada y contraseña asociada con éxito!");
       } else if (action === 'RECOVER') {
-        // En un entorno real, Supabase enviaría un link de reseteo.
-        // Según el requerimiento, informamos del envío a lologc@msn.com
-        if (!email) throw new Error("Introduce tu email para recuperar.");
+        if (!email) throw new Error("Introduce tu email para recuperar la contraseña.");
         
         if (!IS_MOCK_MODE) {
           await supabase.auth.resetPasswordForEmail(email);
         }
         
-        alert(`Se ha enviado una solicitud de recuperación. Por seguridad, un administrador revisará la solicitud y contactará desde lologc@msn.com.`);
+        alert(`Solicitud de recuperación procesada. Se ha enviado un aviso de recuperación. Un administrador revisará tu caso y te contactará desde lologc@msn.com.`);
         setView('AUTH');
       }
     } catch (e: any) {
@@ -319,7 +320,7 @@ const App: React.FC = () => {
           <div className="w-20 h-20 bg-red-600 rounded-[1.8rem] flex items-center justify-center mb-6 shadow-2xl shadow-red-600/40 transform -rotate-6">
             <Bird className="w-10 h-10 text-white" />
           </div>
-          <h1 className="text-4xl font-black mb-1 tracking-tighter uppercase italic">Falcon <span className="text-red-600">PRO</span></h1>
+          <h1 className="text-4xl font-black mb-1 tracking-tighter uppercase italic">FALCON WEIGHT <span className="text-red-600">PRO</span></h1>
           <p className="text-slate-400 text-[9px] font-black uppercase tracking-[0.5em] mb-10">CONTROL YOUR FALCONS</p>
           
           <div className="w-full space-y-4">
@@ -353,9 +354,11 @@ const App: React.FC = () => {
             </div>
 
             {authError && (
-              <p className="text-[10px] font-black text-red-600 uppercase bg-red-50 p-3 rounded-xl border border-red-100">
-                {authError}
-              </p>
+              <div className="animate-in slide-in-from-top-2 duration-300">
+                <p className="text-[10px] font-black text-red-600 uppercase bg-red-50 p-3 rounded-xl border border-red-100">
+                  {authError}
+                </p>
+              </div>
             )}
 
             <div className="pt-2">
@@ -363,8 +366,8 @@ const App: React.FC = () => {
                 <div className="space-y-4">
                   <button onClick={() => handleAuth('LOGIN')} className="w-full py-5 bg-red-600 text-white font-black rounded-2xl shadow-xl shadow-red-600/20 text-lg tracking-widest uppercase border-b-4 border-red-800 active:translate-y-1 transition-all">Entrar</button>
                   <div className="flex flex-col gap-3">
-                    <button onClick={() => setView('SIGNUP')} className="text-slate-400 font-black text-[10px] uppercase tracking-widest hover:text-slate-900 transition-colors">¿No tienes cuenta? Regístrate</button>
-                    <button onClick={() => setView('RECOVER')} className="text-red-600/60 font-black text-[10px] uppercase tracking-widest hover:text-red-600 transition-colors italic">¿Olvidaste tu contraseña?</button>
+                    <button onClick={() => { setView('SIGNUP'); setAuthError(null); }} className="text-slate-400 font-black text-[10px] uppercase tracking-widest hover:text-slate-900 transition-colors">¿No tienes cuenta? Regístrate</button>
+                    <button onClick={() => { setView('RECOVER'); setAuthError(null); }} className="text-red-600/60 font-black text-[10px] uppercase tracking-widest hover:text-red-600 transition-colors italic">¿Olvidaste tu contraseña?</button>
                   </div>
                 </div>
               )}
@@ -372,16 +375,16 @@ const App: React.FC = () => {
               {view === 'SIGNUP' && (
                 <div className="space-y-4">
                   <button onClick={() => handleAuth('SIGNUP')} className="w-full py-5 bg-slate-900 text-white font-black rounded-2xl shadow-xl shadow-slate-900/20 text-lg tracking-widest uppercase border-b-4 border-slate-700 active:translate-y-1 transition-all">Registrarse</button>
-                  <button onClick={() => setView('AUTH')} className="text-slate-400 font-black text-[10px] uppercase tracking-widest hover:text-slate-900 transition-colors">Ya tengo cuenta, volver</button>
+                  <button onClick={() => { setView('AUTH'); setAuthError(null); }} className="text-slate-400 font-black text-[10px] uppercase tracking-widest hover:text-slate-900 transition-colors">Ya tengo cuenta, volver</button>
                 </div>
               )}
 
               {view === 'RECOVER' && (
                 <div className="space-y-4">
                   <button onClick={() => handleAuth('RECOVER')} className="w-full py-5 bg-red-600 text-white font-black rounded-2xl shadow-xl shadow-red-600/20 text-lg tracking-widest uppercase border-b-4 border-red-800 active:translate-y-1 transition-all">Recuperar acceso</button>
-                  <button onClick={() => setView('AUTH')} className="text-slate-400 font-black text-[10px] uppercase tracking-widest hover:text-slate-900 transition-colors">Volver al inicio</button>
+                  <button onClick={() => { setView('AUTH'); setAuthError(null); }} className="text-slate-400 font-black text-[10px] uppercase tracking-widest hover:text-slate-900 transition-colors">Volver al inicio</button>
                   <p className="text-[9px] font-black text-slate-300 uppercase leading-relaxed pt-4 border-t border-slate-50">
-                    Las solicitudes se gestionan vía <span className="text-red-600">lologc@msn.com</span>
+                    Las solicitudes se gestionan vía <span className="text-red-600 font-bold">lologc@msn.com</span>
                   </p>
                 </div>
               )}
@@ -546,7 +549,7 @@ const App: React.FC = () => {
 
           <div className="absolute bottom-10 left-0 right-0 px-8 flex justify-center pointer-events-none">
             <button onClick={() => setView('ADD_ENTRY')} className="w-full max-w-sm py-6 bg-red-600 text-white font-black rounded-[2rem] shadow-2xl shadow-red-600/40 flex items-center justify-center gap-3 active:scale-95 transition-all pointer-events-auto text-lg uppercase tracking-[0.2em] border-b-4 border-red-800 italic">
-              <Plus size={24} /> Registrar Pesada
+              <Plus size={24} /> Registrar Peso
             </button>
           </div>
         </>
@@ -556,7 +559,7 @@ const App: React.FC = () => {
         <main className="flex-1 flex flex-col p-8 space-y-8 bg-white overflow-y-auto no-scrollbar pb-32">
           <div className="flex items-center justify-between">
             <button onClick={() => setView('HAWK_DETAILS')} className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-400"><ChevronLeft/></button>
-            <h2 className="text-xl font-black uppercase italic tracking-tighter">Nueva <span className="text-red-600">Pesada</span></h2>
+            <h2 className="text-xl font-black uppercase italic tracking-tighter">Nuevo <span className="text-red-600">Peso</span></h2>
             <div className="w-12"></div>
           </div>
 
@@ -639,7 +642,7 @@ const App: React.FC = () => {
               onClick={saveEntry} 
               className="w-full max-w-sm py-6 bg-red-600 disabled:bg-slate-200 text-white font-black rounded-[2rem] shadow-2xl uppercase tracking-[0.2em] border-b-4 border-red-800 transition-all active:translate-y-1 italic text-lg"
             >
-              Grabar Pesada
+              Grabar Peso
             </button>
           </div>
         </main>

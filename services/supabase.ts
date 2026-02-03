@@ -1,44 +1,28 @@
+
 import { createClient } from '@supabase/supabase-js';
 
-/**
- * Obtiene una variable de entorno de forma segura, intentando primero con Vite (import.meta.env)
- * y cayendo en process.env si está disponible en el entorno de ejecución.
- */
 const getEnvVar = (name: string): string => {
   try {
-    // Intento con Vite (estándar para frontend moderno)
     if (typeof import.meta !== 'undefined' && import.meta.env) {
       return (import.meta.env[name] as string) || '';
     }
-  } catch (e) {
-    // Silenciar errores de acceso a import.meta
-  }
-
+  } catch (e) {}
   try {
-    // Intento con process.env (común en entornos híbridos o SSR)
     if (typeof process !== 'undefined' && process.env) {
       return (process.env[name] as string) || '';
     }
-  } catch (e) {
-    // Silenciar errores de acceso a process
-  }
-
+  } catch (e) {}
   return '';
 };
 
 const supabaseUrl = getEnvVar('VITE_SUPABASE_URL');
 const supabaseKey = getEnvVar('VITE_SUPABASE_ANON_KEY');
 
-// El modo MOCK se activa si no hay credenciales válidas configuradas
 export const IS_MOCK_MODE = !supabaseUrl || 
                            supabaseUrl === '' || 
                            supabaseUrl.includes('placeholder') || 
                            !supabaseKey;
 
-/**
- * Emulación del sistema de autenticación de Supabase para funcionamiento offline/local
- * cuando no se han configurado las variables de entorno reales.
- */
 class MockAuth {
   private callbacks: any[] = [];
 
@@ -47,7 +31,6 @@ class MockAuth {
     const sessionStr = localStorage.getItem('falcon_session');
     const session = sessionStr ? JSON.parse(sessionStr) : null;
     
-    // Notificación asíncrona para simular comportamiento de red
     setTimeout(() => cb('SIGNED_IN', session), 0);
     
     return { 
@@ -65,15 +48,43 @@ class MockAuth {
     this.callbacks.forEach(cb => cb(event, session));
   }
 
-  async signInWithPassword({ email }: { email: string }) {
-    const session = { user: { id: 'mock-user-123', email }, access_token: 'mock-token-local' };
+  private getUsers() {
+    const users = localStorage.getItem('falcon_mock_users');
+    return users ? JSON.parse(users) : {};
+  }
+
+  private saveUser(email: string, password: string) {
+    const users = this.getUsers();
+    users[email.toLowerCase()] = { password, id: `mock-user-${Math.random().toString(36).substr(2, 9)}` };
+    localStorage.setItem('falcon_mock_users', JSON.stringify(users));
+    return users[email.toLowerCase()];
+  }
+
+  async signInWithPassword({ email, password }: { email: string, password: any }) {
+    const users = this.getUsers();
+    const user = users[email.toLowerCase()];
+    
+    if (!user || user.password !== password) {
+      return { data: { session: null }, error: { message: "Credenciales inválidas", status: 400 } };
+    }
+
+    const session = { user: { id: user.id, email }, access_token: 'mock-token-local' };
     localStorage.setItem('falcon_session', JSON.stringify(session));
     this.notify('SIGNED_IN', session);
     return { data: { session }, error: null };
   }
 
-  async signUp({ email }: { email: string }) {
-    return this.signInWithPassword({ email });
+  async signUp({ email, password }: { email: string, password: any }) {
+    const users = this.getUsers();
+    if (users[email.toLowerCase()]) {
+      return { data: { session: null }, error: { message: "Este email ya está registrado. Por favor, inicia sesión.", status: 400 } };
+    }
+    
+    const newUser = this.saveUser(email, password);
+    const session = { user: { id: newUser.id, email }, access_token: 'mock-token-local' };
+    localStorage.setItem('falcon_session', JSON.stringify(session));
+    this.notify('SIGNED_IN', session);
+    return { data: { session }, error: null };
   }
 
   async signOut() {
@@ -81,9 +92,13 @@ class MockAuth {
     this.notify('SIGNED_OUT', null);
     return { error: null };
   }
+
+  async resetPasswordForEmail(email: string) {
+    console.log(`Reset requested for ${email}`);
+    return { data: {}, error: null };
+  }
 }
 
-// Exportación del cliente: Real si hay variables, Mock si no las hay
 export const supabase = IS_MOCK_MODE 
   ? { auth: new MockAuth() } as any
   : createClient(supabaseUrl, supabaseKey);
