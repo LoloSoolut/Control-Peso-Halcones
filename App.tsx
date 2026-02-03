@@ -1,9 +1,8 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Bird, Plus, ChevronLeft, Trash2, LogOut, 
   TrendingUp, Eye, EyeOff, Utensils, Calendar, Target,
-  ChevronRight, Info, Activity, Minus
+  ChevronRight, Info, Activity, Minus, Check, X
 } from 'lucide-react';
 import { 
   Hawk, AppView, DailyEntry, FoodSelection, FoodCategory, FoodPortion, FOOD_WEIGHT_MAP 
@@ -40,6 +39,10 @@ const App: React.FC = () => {
   const [hawkName, setHawkName] = useState('');
   const [hawkSpecies, setHawkSpecies] = useState(SPECIES_OPTIONS[0]);
   const [hawkTargetWeight, setHawkTargetWeight] = useState('');
+
+  // Editing Target Weight States
+  const [isEditingTarget, setIsEditingTarget] = useState(false);
+  const [tempTargetWeight, setTempTargetWeight] = useState('');
 
   // New Entry States
   const [weightBefore, setWeightBefore] = useState('');
@@ -204,6 +207,30 @@ const App: React.FC = () => {
     }
   };
 
+  const updateTargetWeight = async () => {
+    if (!selectedHawkId || !tempTargetWeight || !user) return;
+    setLoading(true);
+    const newWeight = parseFloat(tempTargetWeight);
+    
+    if (IS_MOCK_MODE) {
+      const updatedHawks = hawks.map(h => h.id === selectedHawkId ? { ...h, targetWeight: newWeight } : h);
+      saveDataLocally(updatedHawks);
+      setIsEditingTarget(false);
+      setLoading(false);
+      return;
+    }
+
+    try {
+      await supabase.from('hawks').update({ target_weight: newWeight }).eq('id', selectedHawkId);
+      await loadData(user.id);
+      setIsEditingTarget(false);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const addHawk = async () => {
     if (!hawkName || !hawkTargetWeight || !user) return;
     setLoading(true);
@@ -299,21 +326,36 @@ const App: React.FC = () => {
             <button onClick={() => setView('ADD_HAWK')} className="w-14 h-14 bg-red-600 rounded-2xl flex items-center justify-center text-white shadow-xl border-b-4 border-red-800 active:scale-95 transition-all"><Plus size={32}/></button>
           </header>
           <main className="flex-1 overflow-y-auto p-6 space-y-4 no-scrollbar">
-            {hawks.map(h => (
-              <div key={h.id} onClick={() => { setSelectedHawkId(h.id); setView('HAWK_DETAILS'); }} className="group bg-white border-2 border-slate-50 p-6 rounded-[2.5rem] flex justify-between items-center shadow-sm hover:border-red-600 transition-all cursor-pointer">
-                <div className="flex items-center gap-6">
-                  <div className="w-16 h-16 bg-slate-50 text-slate-400 group-hover:bg-red-600 group-hover:text-white rounded-[1.5rem] flex items-center justify-center transition-all shadow-inner"><Bird size={32}/></div>
-                  <div>
-                    <h3 className="font-black text-2xl tracking-tighter">{h.name}</h3>
-                    <p className="text-[10px] text-slate-300 font-black uppercase tracking-[0.2em]">{h.species}</p>
+            {hawks.map(h => {
+              const estWeight = calculatePrediction(h);
+              const lastWeight = h.entries[0]?.weightBefore;
+              return (
+                <div key={h.id} onClick={() => { setSelectedHawkId(h.id); setView('HAWK_DETAILS'); }} className="group bg-white border-2 border-slate-50 p-6 rounded-[2.5rem] flex justify-between items-center shadow-sm hover:border-red-600 transition-all cursor-pointer">
+                  <div className="flex items-center gap-4">
+                    <div className="w-14 h-14 bg-slate-50 text-slate-400 group-hover:bg-red-600 group-hover:text-white rounded-[1.5rem] flex items-center justify-center transition-all shadow-inner shrink-0"><Bird size={28}/></div>
+                    <div className="overflow-hidden">
+                      <h3 className="font-black text-xl tracking-tighter truncate">{h.name}</h3>
+                      <p className="text-[9px] text-slate-300 font-black uppercase tracking-[0.1em]">{h.species}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center gap-3 shrink-0">
+                    <div className="text-center px-1">
+                      <p className="text-[7px] font-black text-slate-300 uppercase tracking-tighter">OBJ</p>
+                      <p className="text-xs font-black tabular-nums text-slate-900">{h.targetWeight}g</p>
+                    </div>
+                    <div className="text-center px-1 border-x border-slate-100">
+                      <p className="text-[7px] font-black text-slate-300 uppercase tracking-tighter">ULT</p>
+                      <p className="text-xs font-black tabular-nums text-red-600">{lastWeight || '--'}g</p>
+                    </div>
+                    <div className="text-center px-2 py-1 bg-slate-900 rounded-xl">
+                      <p className="text-[7px] font-black text-slate-500 uppercase tracking-tighter">EST</p>
+                      <p className="text-xs font-black tabular-nums text-white">{estWeight || '--'}g</p>
+                    </div>
                   </div>
                 </div>
-                <div className="text-right">
-                  <div className="text-3xl font-black tabular-nums">{h.entries[0]?.weightBefore || '--'}<span className="text-[10px] text-red-600 ml-1">G</span></div>
-                  <p className="text-[10px] font-black text-slate-300 uppercase">Último Peso</p>
-                </div>
-              </div>
-            ))}
+              );
+            })}
 
             {hawks.length > 0 && (
               <div className="pt-10 pb-6 flex justify-center">
@@ -333,7 +375,7 @@ const App: React.FC = () => {
         <>
           <header className="p-8 flex justify-between items-center border-b border-slate-50 bg-white sticky top-0 z-10">
             <div className="flex items-center gap-4">
-              <button onClick={() => setView('DASHBOARD')} className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-400"><ChevronLeft/></button>
+              <button onClick={() => { setView('DASHBOARD'); setIsEditingTarget(false); }} className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-400"><ChevronLeft/></button>
               <div>
                 <h2 className="font-black text-2xl uppercase italic tracking-tighter">{selectedHawk.name}</h2>
                 <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">CONTROL YOUR FALCONS</p>
@@ -348,9 +390,38 @@ const App: React.FC = () => {
                 <p className="text-[10px] font-black uppercase tracking-widest opacity-60 mb-2">Peso Actual</p>
                 <p className="text-5xl font-black leading-none">{selectedHawk.entries[0]?.weightBefore || '--'}<span className="text-sm font-bold ml-1">g</span></p>
               </div>
-              <div className="bg-slate-900 p-8 rounded-[3rem] text-white border-b-8 border-slate-800">
+              
+              <div className="bg-slate-900 p-8 rounded-[3rem] text-white border-b-8 border-slate-800 relative overflow-hidden group">
                 <p className="text-[10px] font-black uppercase tracking-widest opacity-60 mb-2">Objetivo</p>
-                <p className="text-5xl font-black leading-none">{selectedHawk.targetWeight}<span className="text-sm font-bold ml-1">g</span></p>
+                {isEditingTarget ? (
+                  <div className="space-y-3 animate-in fade-in duration-300">
+                    <input 
+                      type="number" 
+                      value={tempTargetWeight} 
+                      onChange={e => setTempTargetWeight(e.target.value)}
+                      className="w-full bg-slate-800 border-2 border-slate-700 rounded-xl p-2 font-black text-2xl outline-none focus:border-red-600 text-center text-white"
+                      autoFocus
+                    />
+                    <div className="flex gap-2">
+                      <button onClick={updateTargetWeight} className="flex-1 bg-red-600 p-2 rounded-xl flex items-center justify-center hover:bg-red-700 transition-colors">
+                        <Check size={18}/>
+                      </button>
+                      <button onClick={() => setIsEditingTarget(false)} className="flex-1 bg-slate-700 p-2 rounded-xl flex items-center justify-center hover:bg-slate-600 transition-colors">
+                        <X size={18}/>
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div 
+                    className="flex items-end justify-between cursor-pointer" 
+                    onClick={() => { setTempTargetWeight(selectedHawk.targetWeight.toString()); setIsEditingTarget(true); }}
+                  >
+                    <p className="text-5xl font-black leading-none">{selectedHawk.targetWeight}<span className="text-sm font-bold ml-1">g</span></p>
+                    <div className="text-slate-500 group-hover:text-red-500 transition-colors mb-1">
+                      <Plus size={16}/>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -520,7 +591,7 @@ const App: React.FC = () => {
               <input value={hawkTargetWeight} onChange={e => setHawkTargetWeight(e.target.value)} type="number" placeholder="Ej: 850" className="w-full p-6 bg-slate-50 border-2 border-slate-100 rounded-3xl font-black text-xl outline-none text-red-600" />
             </div>
           </div>
-          <button onClick={addHawk} className="w-full py-6 bg-red-600 text-white font-black rounded-[2rem] mt-auto uppercase tracking-widest border-b-4 border-red-800 italic text-lg active:scale-95 transition-all">Añadir a mi Halconera</button>
+          <button onClick={addHawk} className="w-full py-6 bg-red-600 text-white font-black rounded-[2rem] mt-auto uppercase tracking-widest border-b-4 border-red-800 italic text-lg active:scale-95 transition-all">Añadir halcón</button>
         </main>
       )}
     </div>
