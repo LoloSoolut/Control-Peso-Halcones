@@ -1,13 +1,16 @@
+
 import { createClient } from '@supabase/supabase-js';
 
 const getEnv = (key: string): string => {
   try {
     // @ts-ignore
     if (typeof process !== 'undefined' && process.env && process.env[key]) {
+      // @ts-ignore
       return process.env[key];
     }
     // @ts-ignore
     if (import.meta && import.meta.env && import.meta.env[key]) {
+      // @ts-ignore - Fix for line 11 error: Property 'env' does not exist on type 'ImportMeta'
       return import.meta.env[key];
     }
   } catch (e) {}
