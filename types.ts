@@ -1,3 +1,4 @@
+
 export type FoodCategory = 'Paloma' | 'Codorniz' | 'Pollito' | 'Pato' | 'Perdiz';
 export type FoodPortion = 'Entera' | 'Pecho' | 'Pata' | 'Con Vitelo' | 'Sin Vitelo';
 
@@ -6,7 +7,7 @@ export const FOOD_WEIGHT_MAP: Record<FoodCategory, Partial<Record<FoodPortion, n
   'Paloma': { 'Pecho': 45, 'Pata': 20, 'Entera': 100 },
   'Perdiz': { 'Pecho': 60, 'Pata': 35, 'Entera': 150 },
   'Pato': { 'Pecho': 100, 'Pata': 50, 'Entera': 300 },
-  'Codorniz': { 'Pecho': 40, 'Pata': 15, 'Entera': 80 }
+  'Codorniz': { 'Pecho': 40, 'Pata': 20, 'Entera': 80 }
 };
 
 export interface FoodSelection {
