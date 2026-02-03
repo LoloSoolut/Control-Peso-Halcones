@@ -4,7 +4,6 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "echo 'Running development mode'",
-    "build": "echo 'Build not required for static ESM deployment'"
+    "build": "echo 'Static ESM deployment, no build required'"
   }
 }
