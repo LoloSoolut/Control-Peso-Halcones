@@ -34,4 +34,4 @@ export interface Hawk {
   entries: DailyEntry[];
 }
 
-export type AppView = 'AUTH' | 'SIGNUP' | 'RECOVER' | 'DASHBOARD' | 'HAWK_DETAILS' | 'ADD_HAWK' | 'ADD_ENTRY';
+export type AppView = 'AUTH' | 'SIGNUP' | 'RECOVER' | 'DASHBOARD' | 'HAWK_DETAILS' | 'ADD_HAWK' | 'EDIT_HAWK' | 'ADD_ENTRY';
