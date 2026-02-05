@@ -64,14 +64,22 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const initApp = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        setUser(session.user);
-        setView('DASHBOARD');
-        await loadData(session.user.id);
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          setUser(session.user);
+          setView('DASHBOARD');
+          await loadData(session.user.id);
+        }
+      } catch (err) {
+        console.error("Error inicializando sesión:", err);
+      } finally {
+        setIsInitialLoading(false);
+        // Garantizar que el splash screen desaparezca siempre
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent('app-ready'));
+        }, 100);
       }
-      setIsInitialLoading(false);
-      window.dispatchEvent(new CustomEvent('app-ready'));
     };
 
     initApp();
@@ -79,18 +87,17 @@ const App: React.FC = () => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (session) {
         setUser(session.user);
-        // Si estamos en login/signup, saltamos al dashboard
-        if (view === 'AUTH' || view === 'SIGNUP') {
-          setView('DASHBOARD');
-        }
         loadData(session.user.id);
       } else {
         setUser(null);
         setView('AUTH');
       }
     });
-    return () => subscription.unsubscribe();
-  }, [view]);
+
+    return () => {
+      subscription?.unsubscribe();
+    };
+  }, []);
 
   const loadData = async (userId: string) => {
     setDataError(null);
@@ -133,9 +140,11 @@ const App: React.FC = () => {
       if (action === 'LOGIN') {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
+        setView('DASHBOARD');
       } else if (action === 'SIGNUP') {
         const { error } = await supabase.auth.signUp({ email, password });
         if (error) throw error;
+        alert("¡Cuenta creada! Revisa tu email para confirmar.");
       }
     } catch (e: any) {
       setAuthError(e.message);
@@ -168,7 +177,9 @@ const App: React.FC = () => {
       if (error) throw error;
       
       await loadData(user.id);
-      setWeightBefore(''); setCurrentFoodSelections([]); setView('HAWK_DETAILS');
+      setWeightBefore(''); 
+      setCurrentFoodSelections([]); 
+      setView('HAWK_DETAILS');
     } catch(e: any) {
         alert("Error de guardado: " + e.message);
     } finally { setActionLoading(false); }
@@ -186,7 +197,9 @@ const App: React.FC = () => {
       }]);
       if (error) throw error;
       await loadData(user.id);
-      setHawkName(''); setHawkTargetWeight(''); setView('DASHBOARD');
+      setHawkName(''); 
+      setHawkTargetWeight(''); 
+      setView('DASHBOARD');
     } catch(e: any) {
         alert(e.message);
     } finally { setActionLoading(false); }
@@ -207,36 +220,64 @@ const App: React.FC = () => {
         <div className="w-full space-y-4">
           <div className="relative group">
             <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-red-600 transition-colors" size={18} />
-            <input type="email" placeholder="EMAIL DE CETRERO" value={email} onChange={e => setEmail(e.target.value)} className="w-full pl-12 pr-6 py-4 bg-slate-900 border border-slate-800 rounded-2xl text-white font-bold text-xs uppercase focus:border-red-600 transition-all outline-none" />
+            <input 
+              type="email" 
+              placeholder="EMAIL DE CETRERO" 
+              value={email} 
+              onChange={e => setEmail(e.target.value)} 
+              className="w-full pl-12 pr-6 py-4 bg-slate-900 border border-slate-800 rounded-2xl text-white font-bold text-xs uppercase focus:border-red-600 transition-all outline-none" 
+            />
           </div>
 
           <div className="relative group">
             <ShieldCheck className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-red-600 transition-colors" size={18} />
-            <input type={showPassword ? "text" : "password"} placeholder="CONTRASEÑA" value={password} onChange={e => setPassword(e.target.value)} className="w-full pl-12 pr-12 py-4 bg-slate-900 border border-slate-800 rounded-2xl text-white font-bold text-xs uppercase focus:border-red-600 transition-all outline-none" />
-            <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors p-2">
-              {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+            <input 
+              type={showPassword ? "text" : "password"} 
+              placeholder="CONTRASEÑA" 
+              value={password} 
+              onChange={e => setPassword(e.target.value)} 
+              className="w-full pl-12 pr-14 py-4 bg-slate-900 border border-slate-800 rounded-2xl text-white font-bold text-xs uppercase focus:border-red-600 transition-all outline-none" 
+            />
+            <button 
+              type="button" 
+              onClick={() => setShowPassword(!showPassword)} 
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors p-2 z-10"
+            >
+              {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
             </button>
           </div>
 
-          {authError && <p className="text-red-500 text-[10px] font-bold uppercase py-2">{authError}</p>}
+          {authError && <p className="text-red-500 text-[10px] font-bold uppercase py-2 animate-pulse">{authError}</p>}
 
-          <button disabled={actionLoading} onClick={() => handleAuth(view === 'SIGNUP' ? 'SIGNUP' : 'LOGIN')} className="w-full py-5 bg-red-600 text-white font-black rounded-2xl shadow-xl uppercase tracking-widest hover:bg-red-500 transition-all active:scale-95 flex items-center justify-center gap-2">
+          <button 
+            disabled={actionLoading} 
+            onClick={() => handleAuth(view === 'SIGNUP' ? 'SIGNUP' : 'LOGIN')} 
+            className="w-full py-5 bg-red-600 text-white font-black rounded-2xl shadow-xl uppercase tracking-widest hover:bg-red-500 transition-all active:scale-95 flex items-center justify-center gap-2"
+          >
              {actionLoading ? <Loader2 className="animate-spin" /> : (view === 'SIGNUP' ? 'Crear Perfil' : 'Entrar al Sistema')}
           </button>
 
           <div className="pt-4 flex flex-col gap-4">
-            <button onClick={() => setView(view === 'AUTH' ? 'SIGNUP' : 'AUTH')} className="text-slate-500 text-[10px] font-black uppercase hover:text-white transition-colors">
+            <button 
+              onClick={() => setView(view === 'AUTH' ? 'SIGNUP' : 'AUTH')} 
+              className="text-slate-500 text-[10px] font-black uppercase hover:text-white transition-colors"
+            >
               {view === 'AUTH' ? '¿No tienes cuenta? Regístrate' : '¿Ya eres usuario? Inicia sesión'}
             </button>
-            <button onClick={() => handleAuth('GUEST')} className="w-full py-4 text-slate-600 font-black uppercase text-[9px] tracking-widest hover:text-slate-400 transition-colors">Modo Invitado (Solo Local)</button>
+            <button 
+              onClick={() => handleAuth('GUEST')} 
+              className="w-full py-4 text-slate-600 font-black uppercase text-[9px] tracking-widest hover:text-slate-400 transition-colors"
+            >
+              Modo Invitado (Solo Local)
+            </button>
           </div>
         </div>
       </div>
     );
   }
 
-  // --- RENDERIZADO PRINCIPAL (APP) ---
-  // Si el usuario está logueado pero la vista es de AUTH, forzamos DASHBOARD
+  // --- LOGICA DE VISTA SEGURA ---
+  // Si estamos logueados pero la vista es de login/registro, forzamos dashboard
   const currentView = (view === 'AUTH' || view === 'SIGNUP') ? 'DASHBOARD' : view;
 
   return (
@@ -402,7 +443,14 @@ const App: React.FC = () => {
                <div className="flex flex-col items-center justify-center space-y-10">
                   <div className="text-center">
                     <p className="text-[10px] font-black text-slate-300 uppercase tracking-[0.4em] mb-4">PESO EN BÁSCULA (g)</p>
-                    <input value={weightBefore} onChange={e => setWeightBefore(e.target.value)} type="number" placeholder="000.0" className="w-full text-center text-9xl font-black outline-none text-slate-900 bg-transparent placeholder:text-slate-100 caret-red-600 tabular-nums italic" autoFocus />
+                    <input 
+                      value={weightBefore} 
+                      onChange={e => setWeightBefore(e.target.value)} 
+                      type="number" 
+                      placeholder="000.0" 
+                      className="w-full text-center text-9xl font-black outline-none text-slate-900 bg-transparent placeholder:text-slate-100 caret-red-600 tabular-nums italic" 
+                      autoFocus 
+                    />
                   </div>
                   <div className="flex items-center gap-6 p-6 bg-slate-950 rounded-[2.5rem] w-full max-w-sm text-white shadow-2xl border-b-8 border-slate-900">
                      <div className="w-16 h-16 bg-red-600 rounded-2xl flex items-center justify-center shadow-lg"><Utensils size={32} /></div>
@@ -449,8 +497,12 @@ const App: React.FC = () => {
             </div>
 
             <div className="fixed bottom-10 left-0 right-0 px-8 flex justify-center z-50">
-              <button disabled={!weightBefore || actionLoading} onClick={saveEntry} className="group w-full max-w-sm py-6 bg-slate-950 disabled:bg-slate-200 text-white font-black rounded-[2.5rem] shadow-2xl uppercase tracking-[0.3em] active:scale-95 hover:bg-red-600 transition-all flex items-center justify-center gap-4">
-                {actionLoading ? <Loader2 className="animate-spin" /> : <><Check size={28}/> CERRAR SESIÓN</>}
+              <button 
+                disabled={!weightBefore || actionLoading} 
+                onClick={saveEntry} 
+                className="group w-full max-w-sm py-6 bg-slate-950 disabled:bg-slate-200 text-white font-black rounded-[2.5rem] shadow-2xl uppercase tracking-[0.3em] active:scale-95 hover:bg-red-600 transition-all flex items-center justify-center gap-4"
+              >
+                {actionLoading ? <Loader2 className="animate-spin" /> : <><Check size={28}/> GUARDAR REGISTRO</>}
               </button>
             </div>
           </main>
