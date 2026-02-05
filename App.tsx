@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Bird, Plus, ChevronLeft, Trash2, LogOut, 
@@ -56,25 +55,22 @@ const App: React.FC = () => {
     hawks.find(h => h.id === selectedHawkId) || null
   , [hawks, selectedHawkId]);
 
-  // Fix: Added missing chartData variable derived from selected hawk entries to resolve error on line 352
   const chartData = useMemo(() => {
     if (!selectedHawk || !selectedHawk.entries) return [];
     return [...selectedHawk.entries]
       .slice(0, 10)
       .reverse()
       .map(e => ({
-        date: new Date(e.date).toLocaleDateString(),
+        date: new Date(e.date).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }),
         weight: e.weightBefore
       }));
   }, [selectedHawk]);
 
   useEffect(() => {
-    // Avisamos al index.html que React ya está listo
     window.dispatchEvent(new CustomEvent('app-ready'));
 
-    // Configurar listener de auth
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log("Auth Event Update:", event);
+      console.log("Auth Event:", event);
       if (session) {
         setUser(session.user);
         setView('DASHBOARD');
@@ -118,15 +114,17 @@ const App: React.FC = () => {
       
       setHawks(formattedHawks);
     } catch (e: any) {
-      console.error("Database Load Error:", e);
-      setDataError("Error al sincronizar con la nube.");
+      setDataError("Modo lectura: No se pudo sincronizar.");
     }
   };
 
   const handleAuth = async (action: 'LOGIN' | 'SIGNUP' | 'RECOVER') => {
+    if (actionLoading) return;
+    
     setActionLoading(true);
     setAuthError(null);
     setAuthSuccessMsg(null);
+    
     try {
       if (action === 'LOGIN') {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -135,28 +133,25 @@ const App: React.FC = () => {
         if (!email || !password) throw new Error("Completa todos los campos.");
         if (password.length < 6) throw new Error("Contraseña de min. 6 caracteres.");
         
-        const { data, error } = await supabase.auth.signUp({ 
-          email, 
-          password,
-          options: { emailRedirectTo: window.location.origin }
-        });
-        
+        const { data, error } = await supabase.auth.signUp({ email, password });
         if (error) throw error;
         
         if (data.user && !data.session) {
-          setAuthSuccessMsg("¡Éxito! Confirma tu email para poder entrar.");
-        } else {
-          setAuthSuccessMsg("¡Bienvenido! Entrando...");
+          setAuthSuccessMsg("¡Cuenta creada! Revisa tu email (y SPAM) para confirmar.");
+        } else if (data.session) {
+          setAuthSuccessMsg("¡Bienvenido! Iniciando...");
         }
       } else if (action === 'RECOVER') {
         if (!email) throw new Error("Introduce tu email.");
         const { error } = await supabase.auth.resetPasswordForEmail(email);
         if (error) throw error;
-        setAuthSuccessMsg("Enviado. Revisa tu bandeja de entrada.");
+        setAuthSuccessMsg("Instrucciones enviadas a tu email.");
       }
     } catch (e: any) {
-      console.error("Auth Exception:", e);
-      setAuthError(e.message || "Fallo en la conexión");
+      console.error("Auth Error:", e);
+      // Extraemos el mensaje de error de forma segura para evitar mostrar un objeto {}
+      const msg = e?.error_description || e?.message || (typeof e === 'string' ? e : "Error inesperado");
+      setAuthError(msg);
     } finally {
       setActionLoading(false);
     }
