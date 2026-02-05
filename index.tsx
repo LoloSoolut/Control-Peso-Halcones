@@ -10,5 +10,4 @@ if (rootElement) {
       <App />
     </React.StrictMode>
   );
-  window.dispatchEvent(new CustomEvent('app-ready'));
 }
