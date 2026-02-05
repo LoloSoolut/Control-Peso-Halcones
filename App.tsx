@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Bird, Plus, ChevronLeft, Trash2, LogOut, 
   TrendingUp, Eye, EyeOff, Utensils, Calendar, Target,
-  ChevronRight, Info, Activity, Minus, Check, X, Mail, ShieldCheck, Loader2, AlertCircle, WifiOff
+  ChevronRight, Info, Activity, Minus, Check, X, Mail, ShieldCheck, Loader2, AlertCircle, WifiOff, UserCircle
 } from 'lucide-react';
 import { 
   Hawk, AppView, DailyEntry, FoodSelection, FoodCategory, FoodPortion, FOOD_WEIGHT_MAP 
@@ -89,27 +89,33 @@ const App: React.FC = () => {
       
       const formattedHawks = (data || []).map((h: any) => ({
         ...h,
-        targetWeight: h.target_weight,
+        targetWeight: h.target_weight || h.targetWeight,
         entries: (h.entries || []).map((e: any) => ({
           ...e,
-          weightBefore: e.weight_before,
-          totalFoodWeight: e.total_food_weight,
-          foodSelections: e.food_selections || []
+          weightBefore: e.weight_before || e.weightBefore,
+          totalFoodWeight: e.total_food_weight || e.totalFoodWeight,
+          foodSelections: e.food_selections || e.foodSelections || []
         })).sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())
       }));
       setHawks(formattedHawks);
     } catch (e: any) {
-      setDataError("Error de sincronización con la base de datos.");
+      setDataError("Error de sincronización.");
     }
   };
 
-  const handleAuth = async (action: 'LOGIN' | 'SIGNUP' | 'RECOVER') => {
+  const handleAuth = async (action: 'LOGIN' | 'SIGNUP' | 'RECOVER' | 'GUEST') => {
     if (actionLoading) return;
     setActionLoading(true);
     setAuthError(null);
     setAuthSuccessMsg(null);
     
     try {
+      if (action === 'GUEST') {
+        localStorage.setItem('falcon_use_local', 'true');
+        window.location.reload(); // Recarga para activar MockSupabase
+        return;
+      }
+
       if (action === 'LOGIN') {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
@@ -118,24 +124,20 @@ const App: React.FC = () => {
         const { data, error } = await supabase.auth.signUp({ 
           email, 
           password,
-          options: {
-            emailRedirectTo: window.location.origin
-          }
+          options: { emailRedirectTo: window.location.origin }
         });
         if (error) throw error;
         if (data.user && !data.session) {
-          setAuthSuccessMsg("¡Cuenta creada! Revisa tu email (y SPAM) para confirmar tu cuenta antes de entrar.");
+          setAuthSuccessMsg("¡Cuenta creada! Revisa tu email para confirmar.");
         }
       } else if (action === 'RECOVER') {
         const { error } = await supabase.auth.resetPasswordForEmail(email);
         if (error) throw error;
-        setAuthSuccessMsg("Si el email existe, recibirás instrucciones de recuperación.");
+        setAuthSuccessMsg("Instrucciones enviadas.");
       }
     } catch (e: any) {
-      console.error("Auth Error:", e);
-      // Evitar el error {} convirtiendo el objeto a mensaje legible
-      const errorMsg = e.message || e.error_description || (typeof e === 'string' ? e : "Error de red o servidor");
-      setAuthError(errorMsg);
+      const errorMsg = e.message || "Error de red o servidor";
+      setAuthError(errorMsg.includes('rate limit') ? "Demasiados intentos. Usa el 'Modo Invitado' para probar la app ahora." : errorMsg);
     } finally {
       setActionLoading(false);
     }
@@ -198,13 +200,13 @@ const App: React.FC = () => {
         <div className="w-full space-y-4">
           <div className="relative">
             <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
-            <input type="email" placeholder="EMAIL" value={email} onChange={e => setEmail(e.target.value)} className="w-full pl-12 pr-6 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-red-600 font-bold" />
+            <input type="email" placeholder="EMAIL" value={email} onChange={e => setEmail(e.target.value)} className="w-full pl-12 pr-6 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-red-600 font-bold uppercase text-xs" />
           </div>
           
           {view !== 'RECOVER' && (
             <div className="relative">
               <ShieldCheck className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
-              <input type={showPassword ? "text" : "password"} placeholder="CONTRASEÑA" value={password} onChange={e => setPassword(e.target.value)} className="w-full pl-12 pr-12 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-red-600 font-bold" />
+              <input type={showPassword ? "text" : "password"} placeholder="CONTRASEÑA" value={password} onChange={e => setPassword(e.target.value)} className="w-full pl-12 pr-12 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-red-600 font-bold uppercase text-xs" />
               <button onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300">
                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
@@ -212,7 +214,7 @@ const App: React.FC = () => {
           )}
 
           {authError && (
-            <div className="p-4 bg-red-50 text-red-600 rounded-2xl text-[11px] font-bold uppercase flex items-center gap-2 text-left leading-tight">
+            <div className="p-4 bg-red-50 text-red-600 rounded-2xl text-[11px] font-bold uppercase flex items-center gap-2 text-left leading-tight border border-red-100">
               <AlertCircle className="shrink-0" size={16} /> {authError}
             </div>
           )}
@@ -231,14 +233,26 @@ const App: React.FC = () => {
             {actionLoading ? <Loader2 className="animate-spin" /> : (view === 'SIGNUP' ? 'Crear Cuenta' : (view === 'RECOVER' ? 'Recuperar' : 'Entrar'))}
           </button>
           
+          <div className="relative py-4">
+             <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-100"></div></div>
+             <div className="relative flex justify-center text-[8px] font-black uppercase tracking-widest"><span className="bg-white px-2 text-slate-300">O TAMBIÉN</span></div>
+          </div>
+
+          <button 
+            onClick={() => handleAuth('GUEST')} 
+            className="w-full py-4 bg-slate-900 text-white font-black rounded-2xl flex items-center justify-center gap-2 uppercase text-[10px] tracking-widest active:scale-95 transition-all"
+          >
+            <UserCircle size={18} className="text-red-500" /> Probar sin cuenta (Local)
+          </button>
+          
           <div className="pt-4 flex flex-col gap-3">
             {view === 'AUTH' ? (
               <>
-                <button onClick={() => setView('SIGNUP')} className="text-slate-400 text-[10px] font-black uppercase">¿No tienes cuenta? <span className="text-slate-900 underline">Regístrate gratis</span></button>
+                <button onClick={() => setView('SIGNUP')} className="text-slate-400 text-[10px] font-black uppercase">¿No tienes cuenta? <span className="text-slate-900 underline">Regístrate</span></button>
                 <button onClick={() => setView('RECOVER')} className="text-slate-400 text-[9px] font-black uppercase opacity-60 italic">¿Olvidaste tu contraseña?</button>
               </>
             ) : (
-              <button onClick={() => setView('AUTH')} className="text-slate-400 text-[10px] font-black uppercase">Ya tengo cuenta. <span className="text-slate-900 underline">Volver al login</span></button>
+              <button onClick={() => setView('AUTH')} className="text-slate-400 text-[10px] font-black uppercase">Ya tengo cuenta. <span className="text-slate-900 underline">Volver</span></button>
             )}
           </div>
         </div>
@@ -246,11 +260,11 @@ const App: React.FC = () => {
     );
   }
 
-  // App Main Render
   return (
     <div className="flex-1 flex flex-col w-full max-w-4xl mx-auto bg-white overflow-hidden md:rounded-[2.5rem] relative border-x border-slate-100 font-inter">
       {user && (
         <div className="flex-1 flex flex-col overflow-hidden">
+          {IS_MOCK_MODE && <div className="bg-slate-900 text-red-500 text-[8px] p-1 text-center font-black uppercase tracking-widest">MODO INVITADO (DATOS LOCALES)</div>}
           {dataError && <div className="bg-amber-500 text-white text-[9px] p-2 text-center font-black uppercase flex items-center justify-center gap-2"><WifiOff size={12}/> {dataError}</div>}
           
           {view === 'DASHBOARD' && (
@@ -284,8 +298,8 @@ const App: React.FC = () => {
                 )}
 
                 <div className="pt-10 flex flex-col items-center gap-4">
-                  <button onClick={() => supabase.auth.signOut()} className="px-8 py-3 bg-slate-100 text-slate-400 hover:text-red-600 rounded-full text-[10px] font-black uppercase flex items-center gap-2 transition-all"><LogOut size={14}/> Cerrar Sesión</button>
-                  <p className="text-[8px] font-bold text-slate-300 uppercase italic">Falcon Weight Pro v1.2</p>
+                  <button onClick={() => supabase.auth.signOut()} className="px-8 py-3 bg-slate-100 text-slate-400 hover:text-red-600 rounded-full text-[10px] font-black uppercase flex items-center gap-2 transition-all"><LogOut size={14}/> {IS_MOCK_MODE ? 'Salir de Invitado' : 'Cerrar Sesión'}</button>
+                  <p className="text-[8px] font-bold text-slate-300 uppercase italic">Falcon Weight Pro v1.3</p>
                 </div>
               </main>
             </>
