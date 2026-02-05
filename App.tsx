@@ -18,11 +18,11 @@ import {
 const SPECIES_OPTIONS = ['Peregrino', 'Híbrido', 'Gerifalte', 'Lanario', 'Sacre', 'Harris', 'Azor', 'Cernícalo'];
 
 const FOOD_COLORS: Record<FoodCategory, { bg: string, border: string, text: string, accent: string }> = {
-  'Chick': { bg: 'bg-amber-50', border: 'border-amber-200', text: 'text-amber-900', accent: 'bg-amber-600' },
-  'Pigeon': { bg: 'bg-rose-50', border: 'border-rose-200', text: 'text-rose-900', accent: 'bg-rose-600' },
-  'Quail': { bg: 'bg-orange-50', border: 'border-orange-200', text: 'text-orange-900', accent: 'bg-orange-600' },
-  'Partridge': { bg: 'bg-yellow-50', border: 'border-yellow-200', text: 'text-yellow-900', accent: 'bg-yellow-600' },
-  'Duck': { bg: 'bg-indigo-50', border: 'border-indigo-200', text: 'text-indigo-900', accent: 'bg-indigo-800' }
+  'Chick': { bg: 'bg-yellow-100', border: 'border-yellow-300', text: 'text-yellow-900', accent: 'bg-yellow-600' },
+  'Pigeon': { bg: 'bg-slate-200', border: 'border-slate-300', text: 'text-slate-900', accent: 'bg-slate-600' },
+  'Quail': { bg: 'bg-orange-100', border: 'border-orange-300', text: 'text-orange-900', accent: 'bg-orange-600' },
+  'Partridge': { bg: 'bg-stone-200', border: 'border-stone-400', text: 'text-stone-900', accent: 'bg-stone-600' },
+  'Duck': { bg: 'bg-emerald-100', border: 'border-emerald-300', text: 'text-emerald-900', accent: 'bg-emerald-600' }
 };
 
 const App: React.FC = () => {
@@ -224,7 +224,6 @@ const App: React.FC = () => {
     setView('EDIT_HAWK');
   };
 
-  // --- UI: AUTHENTICATION ---
   if (!user) {
     return (
       <div className="flex-1 flex flex-col p-8 justify-center items-center text-center max-w-md mx-auto w-full bg-slate-950 min-h-screen font-inter animate-in fade-in duration-500">
@@ -280,19 +279,11 @@ const App: React.FC = () => {
           >
             {view === 'AUTH' ? '¿Sin cuenta? Regístrate' : '¿Ya eres usuario? Inicia sesión'}
           </button>
-          
-          <button 
-            onClick={() => handleAuth('GUEST')} 
-            className="w-full py-3 text-slate-700 font-black uppercase text-[8px] tracking-widest hover:text-slate-500"
-          >
-            Modo Invitado (Offline)
-          </button>
         </div>
       </div>
     );
   }
 
-  // --- UI: DASHBOARD & VIEWS ---
   const currentView = (view === 'AUTH' || view === 'SIGNUP') ? 'DASHBOARD' : view;
 
   return (
@@ -395,7 +386,6 @@ const App: React.FC = () => {
                     </div>
                  </div>
                ))}
-               {selectedHawk.entries.length === 0 && <p className="text-center text-[10px] text-slate-400 uppercase py-4">Sin registros previos</p>}
             </div>
           </main>
         </div>
@@ -429,13 +419,16 @@ const App: React.FC = () => {
               </div>
             </div>
 
-            <div className="space-y-3">
-               <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">ALIMENTO</p>
-               <div className="grid grid-cols-2 gap-2">
+            <div className="space-y-4">
+               <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest ml-2">ALIMENTACIÓN DIARIA</p>
+               <div className="grid grid-cols-1 gap-3">
                   {(Object.keys(FOOD_WEIGHT_MAP) as FoodCategory[]).map(cat => (
-                    <div key={cat} className="p-3 bg-white border border-slate-200 rounded-2xl space-y-2">
-                      <p className="text-[7px] font-black uppercase text-slate-400">{cat}</p>
-                      <div className="grid grid-cols-1 gap-1">
+                    <div key={cat} className={`${FOOD_COLORS[cat].bg} p-4 rounded-3xl border ${FOOD_COLORS[cat].border} shadow-sm space-y-3`}>
+                      <p className={`text-[10px] font-black uppercase tracking-widest ${FOOD_COLORS[cat].text} flex items-center gap-2`}>
+                        <div className={`w-2 h-2 rounded-full ${FOOD_COLORS[cat].accent}`}></div>
+                        {cat === 'Chick' ? 'Pollitos' : cat === 'Pigeon' ? 'Paloma' : cat === 'Quail' ? 'Codorniz' : cat === 'Partridge' ? 'Perdiz' : 'Pato'}
+                      </p>
+                      <div className="grid grid-cols-2 gap-2">
                         {(Object.keys(FOOD_WEIGHT_MAP[cat]) as FoodPortion[]).map(por => {
                            const sel = currentFoodSelections.find(f => f.category === cat && f.portion === por);
                            const qty = sel?.quantity || 0;
@@ -450,9 +443,9 @@ const App: React.FC = () => {
                                  }
                                  return [...prev, { id: Math.random().toString(), category: cat, portion: por, quantity: 1 }];
                                });
-                             }} className="bg-slate-50 p-2 rounded-lg border border-slate-100 flex justify-between items-center active:bg-slate-100">
-                               <span className="text-[8px] font-bold text-slate-600">{por} ({FOOD_WEIGHT_MAP[cat][por]}g)</span>
-                               {qty > 0 && <span className="bg-red-600 text-white text-[8px] px-1.5 rounded-md font-black">{qty}</span>}
+                             }} className="bg-white/60 p-3 rounded-xl border border-white flex justify-between items-center active:bg-white transition-all">
+                               <span className={`text-[9px] font-bold ${FOOD_COLORS[cat].text}`}>{por} ({FOOD_WEIGHT_MAP[cat][por]}g)</span>
+                               {qty > 0 && <span className={`${FOOD_COLORS[cat].accent} text-white text-[10px] min-w-5 h-5 flex items-center justify-center rounded-full font-black shadow-sm`}>{qty}</span>}
                              </button>
                            );
                         })}
@@ -500,7 +493,6 @@ const App: React.FC = () => {
                   value={hawkSpecies} 
                   onChange={e => setHawkSpecies(e.target.value)} 
                   className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl font-black text-lg uppercase outline-none focus:border-red-600 text-slate-900 appearance-none bg-no-repeat"
-                  style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23dc2626'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`, backgroundPosition: 'right 1rem center', backgroundSize: '1.2em' }}
                 >
                   {SPECIES_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
                 </select>
@@ -522,14 +514,6 @@ const App: React.FC = () => {
               >
                 {actionLoading ? <Loader2 className="animate-spin mx-auto" size={18} /> : (view === 'EDIT_HAWK' ? 'GUARDAR CAMBIOS' : 'AÑADIR HALCÓN')}
               </button>
-              {view === 'EDIT_HAWK' && (
-                <button 
-                  onClick={() => setView('HAWK_DETAILS')} 
-                  className="w-full py-2 text-slate-400 font-bold uppercase text-[9px] tracking-widest"
-                >
-                  Cancelar
-                </button>
-              )}
             </div>
           </main>
         </div>

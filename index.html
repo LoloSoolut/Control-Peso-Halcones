@@ -16,7 +16,6 @@
                 }, 500);
             }
         });
-        // Seguridad: Si después de 5 segundos no ha cargado, forzamos la salida del splash
         setTimeout(() => {
             window.dispatchEvent(new CustomEvent('app-ready'));
         }, 5000);
@@ -29,7 +28,7 @@
             padding: 0;
             min-height: 100vh;
             color: #f8fafc;
-            overflow-y: auto; /* Permitir scroll vertical siempre */
+            overflow-y: auto;
             -webkit-tap-highlight-color: transparent;
         }
         #root { 
@@ -76,10 +75,10 @@
     "lucide-react": "https://esm.sh/lucide-react@0.454.0",
     "recharts": "https://esm.sh/recharts@2.12.7",
     "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2.45.4",
-    "vite": "https://esm.sh/vite@^7.3.1",
-    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.3",
     "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
-    "react/": "https://esm.sh/react@^19.2.4/"
+    "react/": "https://esm.sh/react@^19.2.4/",
+    "vite": "https://esm.sh/vite@^7.3.1",
+    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.3"
   }
 }
 </script>
