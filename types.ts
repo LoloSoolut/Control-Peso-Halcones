@@ -22,6 +22,7 @@ export interface DailyEntry {
   weightBefore: number;
   totalFoodWeight: number;
   foodSelections: FoodSelection[];
+  notes?: string;
   predictedWeight?: number;
 }
 
