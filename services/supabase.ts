@@ -36,19 +36,30 @@ class MockSupabase {
 
   from(table: string) {
     return {
-      select: (query: string) => ({
+      select: (query: string = '*') => ({
         eq: (col: string, val: any) => {
           const data = JSON.parse(localStorage.getItem(`mock_${table}`) || '[]');
-          // Simulación básica de joins
-          if (query.includes('*') && table === 'hawks') {
+          
+          if (query.includes('entries') && table === 'hawks') {
             const entries = JSON.parse(localStorage.getItem('mock_entries') || '[]');
-            const joined = data.map((h: any) => ({
+            const foodItems = JSON.parse(localStorage.getItem('mock_food_items') || '[]');
+            
+            const joined = data.filter((h:any) => h[col] === val).map((h: any) => ({
               ...h,
-              entries: entries.filter((e: any) => e.hawk_id === h.id)
+              entries: entries.filter((e: any) => e.hawk_id === h.id).map((e:any) => ({
+                ...e,
+                food_items: foodItems.filter((fi:any) => fi.entry_id === e.id)
+              }))
             }));
             return Promise.resolve({ data: joined, error: null });
           }
-          return Promise.resolve({ data, error: null });
+          
+          const filtered = data.filter((item: any) => item[col] === val);
+          return Promise.resolve({ data: filtered, error: null });
+        },
+        single: () => {
+          const data = JSON.parse(localStorage.getItem(`mock_${table}`) || '[]');
+          return Promise.resolve({ data: data[0], error: null });
         }
       }),
       insert: (items: any[]) => {
@@ -59,8 +70,21 @@ class MockSupabase {
           ...item 
         }));
         localStorage.setItem(`mock_${table}`, JSON.stringify([...newItems, ...data]));
-        return { select: () => ({ single: () => Promise.resolve({ data: newItems[0], error: null }) }), error: null };
+        return { 
+          select: () => ({ 
+            single: () => Promise.resolve({ data: newItems[0], error: null }) 
+          }), 
+          error: null 
+        };
       },
+      update: (fields: any) => ({
+        eq: (col: string, val: any) => {
+          const data = JSON.parse(localStorage.getItem(`mock_${table}`) || '[]');
+          const updated = data.map((item: any) => item[col] === val ? { ...item, ...fields } : item);
+          localStorage.setItem(`mock_${table}`, JSON.stringify(updated));
+          return Promise.resolve({ error: null });
+        }
+      }),
       delete: () => ({
         eq: (col: string, val: any) => {
           const data = JSON.parse(localStorage.getItem(`mock_${table}`) || '[]');

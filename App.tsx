@@ -4,7 +4,7 @@ import {
   Target, Activity, Minus, Check, X, Mail, ShieldCheck, 
   Loader2, AlertCircle, WifiOff, UserCircle, Scale, MessageSquare, ChevronDown, 
   ArrowUpRight, ArrowDownRight, Zap, History, LayoutDashboard, Settings,
-  Utensils, TrendingUp, Clock, Eye, EyeOff, Edit3
+  Utensils, TrendingUp, Clock, Eye, EyeOff, Edit3, Egg, Gauge
 } from 'lucide-react';
 import { 
   Hawk, AppView, DailyEntry, FoodSelection, FoodCategory, FoodPortion, FOOD_WEIGHT_MAP 
@@ -12,7 +12,7 @@ import {
 import { supabase } from './services/supabase';
 import { 
   ResponsiveContainer, AreaChart, Area, 
-  XAxis, YAxis, Tooltip, CartesianGrid
+  XAxis, YAxis, Tooltip, CartesianGrid, ReferenceLine
 } from 'recharts';
 
 const SPECIES_OPTIONS = ['Peregrine', 'Hybrid', 'Gyrfalcon', 'Lanner', 'Saker', 'Harris', 'Goshawk', 'Kestrel'];
@@ -23,6 +23,14 @@ const FOOD_COLORS: Record<FoodCategory, { bg: string, border: string, text: stri
   'Quail': { bg: 'bg-orange-100', border: 'border-orange-300', text: 'text-orange-900', accent: 'bg-orange-600' },
   'Partridge': { bg: 'bg-stone-200', border: 'border-stone-400', text: 'text-stone-900', accent: 'bg-stone-600' },
   'Duck': { bg: 'bg-emerald-100', border: 'border-emerald-300', text: 'text-emerald-900', accent: 'bg-emerald-600' }
+};
+
+const FOOD_ICONS: Record<FoodCategory, React.ElementType> = {
+  'Chick': Egg,
+  'Pigeon': Bird,
+  'Quail': Target,
+  'Partridge': Zap,
+  'Duck': Activity
 };
 
 const App: React.FC = () => {
@@ -48,6 +56,17 @@ const App: React.FC = () => {
   const selectedHawk = useMemo(() => 
     hawks.find(h => h.id === selectedHawkId) || null
   , [hawks, selectedHawkId]);
+
+  const chartData = useMemo(() => {
+    if (!selectedHawk) return [];
+    return [...selectedHawk.entries]
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+      .map(e => ({
+        date: new Date(e.date).toLocaleDateString('en-US', { day: '2-digit', month: 'short' }),
+        weight: e.weightBefore,
+        fullDate: new Date(e.date).toLocaleDateString()
+      }));
+  }, [selectedHawk]);
 
   useEffect(() => {
     const initApp = async () => {
@@ -88,7 +107,7 @@ const App: React.FC = () => {
     try {
       const { data, error } = await supabase
         .from('hawks')
-        .select('*, entries(*)')
+        .select('*, entries(*, food_items(*))')
         .eq('user_id', userId);
       
       if (error) throw error;
@@ -100,6 +119,12 @@ const App: React.FC = () => {
           ...e,
           weightBefore: e.weight_before || e.weightBefore,
           totalFoodWeight: (e.weight_after || e.weightAfter || 0) - (e.weight_before || e.weightBefore || 0),
+          foodSelections: (e.food_items || []).map((item: any) => ({
+            id: item.id,
+            category: item.type,
+            portion: item.portion,
+            quantity: item.quantity
+          })),
           date: e.date || e.created_at
         })).sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())
       }));
@@ -167,13 +192,26 @@ const App: React.FC = () => {
     try {
       const wBeforeNum = parseFloat(weightBefore);
       const wAfterNum = wBeforeNum + totalFoodWeight;
-      const { error } = await supabase.from('entries').insert([{ 
+      
+      const { data: entryData, error: entryError } = await supabase.from('entries').insert([{ 
         hawk_id: selectedHawkId, 
         weight_before: wBeforeNum, 
         weight_after: wAfterNum, 
         date: new Date().toISOString() 
-      }]);
-      if (error) throw error;
+      }]).select().single();
+      
+      if (entryError) throw entryError;
+
+      if (currentFoodSelections.length > 0) {
+        const itemsToInsert = currentFoodSelections.map(f => ({
+          entry_id: entryData.id,
+          type: f.category,
+          portion: f.portion,
+          quantity: f.quantity
+        }));
+        await supabase.from('food_items').insert(itemsToInsert);
+      }
+
       await loadData(user.id);
       setWeightBefore(''); 
       setCurrentFoodSelections([]); 
@@ -370,36 +408,105 @@ const App: React.FC = () => {
           </header>
 
           <main className="flex-1 overflow-y-auto p-4 space-y-6">
-            <div className="bg-slate-900 rounded-[2rem] p-6 text-white shadow-xl">
-              <p className="text-[8px] font-black uppercase tracking-widest text-slate-500 mb-2">LAST WEIGHT</p>
-              <div className="flex justify-between items-end">
-                <p className="text-5xl font-black italic">{selectedHawk.entries[0]?.weightBefore || '--'}<span className="text-xl not-italic ml-2 text-red-600">g</span></p>
-                <div className="text-right">
-                  <p className="text-[8px] font-bold text-slate-500 uppercase">TARGET</p>
-                  <p className="text-lg font-black text-white/40">{selectedHawk.targetWeight}g</p>
+            <div className="bg-slate-900 rounded-[2rem] p-6 text-white shadow-xl relative overflow-hidden">
+              <div className="relative z-10">
+                <p className="text-[8px] font-black uppercase tracking-widest text-slate-500 mb-2">WEIGHT EVOLUTION</p>
+                <div className="h-48 w-full mt-4">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={chartData}>
+                      <defs>
+                        <linearGradient id="colorWeight" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#dc2626" stopOpacity={0.3}/>
+                          <stop offset="95%" stopColor="#dc2626" stopOpacity={0}/>
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#1e293b" />
+                      <XAxis 
+                        dataKey="date" 
+                        axisLine={false} 
+                        tickLine={false} 
+                        tick={{fill: '#475569', fontSize: 10, fontWeight: 700}} 
+                        dy={10}
+                      />
+                      <YAxis hide domain={['dataMin - 50', 'dataMax + 50']} />
+                      <Tooltip 
+                        contentStyle={{backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px', fontSize: '10px', fontWeight: 'bold'}}
+                        itemStyle={{color: '#dc2626'}}
+                      />
+                      <ReferenceLine y={selectedHawk.targetWeight} stroke="#dc2626" strokeDasharray="5 5" strokeOpacity={0.5} />
+                      <Area 
+                        type="monotone" 
+                        dataKey="weight" 
+                        stroke="#dc2626" 
+                        strokeWidth={4}
+                        fillOpacity={1} 
+                        fill="url(#colorWeight)" 
+                        animationDuration={1500}
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="flex justify-between items-end mt-4 pt-4 border-t border-slate-800">
+                  <p className="text-4xl font-black italic">{selectedHawk.entries[0]?.weightBefore || '--'}<span className="text-xl not-italic ml-2 text-red-600">g</span></p>
+                  <div className="text-right">
+                    <p className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">TARGET WEIGHT</p>
+                    <p className="text-lg font-black text-white/40">{selectedHawk.targetWeight}g</p>
+                  </div>
                 </div>
               </div>
             </div>
 
-            <button onClick={() => setView('ADD_ENTRY')} className="w-full py-4 bg-red-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-lg active:scale-95 transition-all">LOG TODAY'S WEIGHT</button>
+            <button onClick={() => setView('ADD_ENTRY')} className="w-full py-4 bg-red-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2">
+              <Scale size={18} /> LOG TODAY'S WEIGHT
+            </button>
 
-            <div className="space-y-3 pb-8">
-               <h3 className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-2">RECENT HISTORY</h3>
+            <div className="space-y-3 pb-24">
+               <h3 className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-2 flex items-center gap-2">
+                 <History size={12} /> RECENT LOGS
+               </h3>
                {selectedHawk.entries.map(e => (
-                 <div key={e.id} className="p-4 bg-white border border-slate-200 rounded-2xl flex justify-between items-center">
-                    <div className="flex items-center gap-3">
-                       <div className="w-9 h-9 bg-slate-50 rounded-lg flex items-center justify-center text-slate-400"><Scale size={16}/></div>
-                       <div>
-                         <p className="text-lg font-black text-slate-900">{e.weightBefore}<span className="text-xs text-slate-300 ml-1">g</span></p>
-                         <p className="text-[7px] font-bold text-red-600 uppercase">FEEDING: +{e.totalFoodWeight.toFixed(1)}g</p>
+                 <div key={e.id} className="p-4 bg-white border border-slate-200 rounded-3xl space-y-4 shadow-sm">
+                    <div className="flex justify-between items-start">
+                       <div className="flex items-center gap-3">
+                         <div className="w-10 h-10 bg-slate-900 rounded-xl flex items-center justify-center text-red-600 shadow-md">
+                           <Scale size={18} strokeWidth={2.5} />
+                         </div>
+                         <div>
+                           <p className="text-xl font-black text-slate-900">{e.weightBefore}<span className="text-xs text-slate-300 ml-1">g</span></p>
+                           <p className="text-[8px] font-black text-slate-400 uppercase">{new Date(e.date).toLocaleDateString('en-US', { weekday: 'long', day: '2-digit', month: 'short' })}</p>
+                         </div>
+                       </div>
+                       <div className="text-right">
+                          <div className="bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-100">
+                            <p className="text-[8px] font-black text-emerald-600 uppercase">FOOD TOTAL</p>
+                            <p className="text-xs font-black text-emerald-700">+{e.totalFoodWeight.toFixed(0)}g</p>
+                          </div>
                        </div>
                     </div>
-                    <div className="text-right">
-                       <p className="text-[8px] font-black text-slate-500 uppercase">{new Date(e.date).toLocaleDateString('en-US', { day: '2-digit', month: 'short' })}</p>
-                    </div>
+
+                    {e.foodSelections && e.foodSelections.length > 0 && (
+                      <div className="flex flex-wrap gap-2 pt-2">
+                        {e.foodSelections.map((fs, idx) => {
+                          const Icon = FOOD_ICONS[fs.category];
+                          const colors = FOOD_COLORS[fs.category];
+                          return (
+                            <div key={idx} className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full ${colors.bg} border ${colors.border} shadow-sm`}>
+                              <Icon className={colors.text} size={10} />
+                              <span className={`text-[9px] font-black uppercase ${colors.text}`}>{fs.portion}</span>
+                              <span className={`text-[9px] font-black px-1.5 rounded-full ${colors.accent} text-white`}>x{fs.quantity}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                  </div>
                ))}
-               {selectedHawk.entries.length === 0 && <p className="text-center text-[10px] text-slate-400 uppercase py-4">No previous records</p>}
+               {selectedHawk.entries.length === 0 && (
+                 <div className="py-12 text-center opacity-30 flex flex-col items-center">
+                    <Gauge size={40} className="mb-2" />
+                    <p className="text-[10px] font-black uppercase tracking-widest">No previous records found</p>
+                 </div>
+               )}
             </div>
           </main>
         </div>
