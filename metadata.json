@@ -1,5 +1,5 @@
 {
-  "name": "Falcon Weight PRO",
+  "name": "Falcon Weigh PRO",
   "description": "Control your falcons. Specialized application for daily tracking of falcon weight and feeding.",
   "requestFramePermissions": [
     "camera"
